@@ -2,7 +2,8 @@
 
 > 基于 **Dify Chatflow + DeepSeek + RAG** 的轻量企业运维知识问答页面，支持多轮对话、点赞/点踩、点踩原因与文字反馈。
 >
-> GitHub 仓库：<https://github.com/cl-Y1/enterprise-ops-ai-assistant>
+> GitHub 仓库：<https://github.com/cl-Y1/enterprise-ops-ai-assistant><br>
+> [![tests](https://github.com/cl-Y1/enterprise-ops-ai-assistant/actions/workflows/tests.yml/badge.svg)](https://github.com/cl-Y1/enterprise-ops-ai-assistant/actions/workflows/tests.yml)
 
 本项目不重新开发 RAG，也不修改原有 Chatflow 的核心逻辑。V1.2 在现有 Dify 应用之上增加一个独立的 Flask Web 页面，把聊天和反馈请求统一放在后端转发，Dify API Key 不进入浏览器。
 
