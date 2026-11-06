@@ -1,4 +1,4 @@
-"""企业智能运维知识助手 V1.3 自动化测试。
+"""企业智能运维知识助手 V1.4 自动化测试。
 
 这些测试不会访问真实 Dify，而是模拟 Dify 的响应，用来验证：
 - 请求地址、Header 和请求体是否符合官方 API 契约；
@@ -88,8 +88,9 @@ class AssistantTestCase(unittest.TestCase):
         data = response.get_json()
         self.assertTrue(data["ok"])
         self.assertTrue(data["configured"])
-        self.assertEqual(data["version"], "1.3")
+        self.assertEqual(data["version"], "1.4")
         self.assertTrue(data["document_management"])
+        self.assertTrue(data["role_management"])
         self.assertNotIn("api_key", data)
         self.assertNotIn(TEST_KEY, response.get_data(as_text=True))
 

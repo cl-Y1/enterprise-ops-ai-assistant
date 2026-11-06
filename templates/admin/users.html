@@ -1,0 +1,86 @@
+{% extends "admin/base.html" %}
+{% block title %}用户管理{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">USER &amp; ROLE</p>
+    <h1>用户管理</h1>
+    <p class="page-description">为员工分配唯一账号和角色。角色变更、停用账号或重置密码后，该用户的旧会话会立即失效。</p>
+  </div>
+  <a class="button button--primary" href="{{ url_for('admin.new_user') }}">＋ 新建用户</a>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <span class="stat-label">普通员工</span>
+    <strong>{{ role_counts.employee }}</strong>
+    <span class="stat-note">问答与反馈</span>
+  </div>
+  <div class="stat-card stat-card--amber">
+    <span class="stat-label">运维人员</span>
+    <strong>{{ role_counts.operator }}</strong>
+    <span class="stat-note">文档版本与验证</span>
+  </div>
+  <div class="stat-card stat-card--green">
+    <span class="stat-label">管理员</span>
+    <strong>{{ role_counts.admin }}</strong>
+    <span class="stat-note">全部权限</span>
+  </div>
+  <div class="stat-card stat-card--slate">
+    <span class="stat-label">账号总数</span>
+    <strong>{{ users|length }}</strong>
+    <span class="stat-note">含停用账号</span>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-toolbar">
+    <div>
+      <h2>账号列表</h2>
+      <p>密码只保存 scrypt 哈希，任何页面都不会显示原密码。</p>
+    </div>
+    <a class="text-link" href="{{ url_for('admin.roles') }}">查看角色权限矩阵</a>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">账号</th>
+          <th scope="col">显示名称</th>
+          <th scope="col">角色</th>
+          <th scope="col">状态</th>
+          <th scope="col">最后登录</th>
+          <th scope="col">创建时间</th>
+          <th scope="col" class="align-right">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+          <tr>
+            <td>
+              <span class="table-title">{{ user.username }}</span>
+              {% if user.id == current_user.id %}<span class="meta-chip">当前账号</span>{% endif %}
+            </td>
+            <td>{{ user.display_name }}</td>
+            <td><span class="status status--role-{{ user.role }}">{{ role_labels.get(user.role, user.role) }}</span></td>
+            <td>
+              <span class="status {% if user.is_active %}status--approved{% else %}status--archived{% endif %}">
+                {{ '启用' if user.is_active else '已停用' }}
+              </span>
+            </td>
+            <td class="nowrap">{{ user.last_login_at or '—' }}</td>
+            <td class="nowrap">{{ user.created_at }}</td>
+            <td class="align-right">
+              <a class="text-link" href="{{ url_for('admin.edit_user', user_id=user.id) }}">编辑</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="info-banner">
+  安全规则：不能停用或降级最后一个启用状态的管理员；管理员不能修改自己的角色或停用自己的账号。
+</div>
+{% endblock %}

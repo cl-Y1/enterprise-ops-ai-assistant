@@ -1,0 +1,92 @@
+{% extends "admin/base.html" %}
+{% block title %}反馈记录{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">FEEDBACK REVIEW</p>
+    <h1>反馈记录</h1>
+    <p class="page-description">查看用户对 AI 回答的点赞、点踩与文字反馈。Dify 原生日志仍是权威来源，这里保存一份本地镜像便于管理。</p>
+  </div>
+</div>
+
+<div class="stat-grid stat-grid--three">
+  <div class="stat-card">
+    <span class="stat-label">反馈总数</span>
+    <strong>{{ stats.total }}</strong>
+    <span class="stat-note">本实例记录的反馈</span>
+  </div>
+  <div class="stat-card stat-card--green">
+    <span class="stat-label">点赞</span>
+    <strong>{{ stats.like }}</strong>
+    <span class="stat-note">用户认为回答有帮助</span>
+  </div>
+  <div class="stat-card stat-card--amber">
+    <span class="stat-label">点踩</span>
+    <strong>{{ stats.dislike }}</strong>
+    <span class="stat-note">需要关注改进</span>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-toolbar">
+    <div>
+      <h2>反馈明细</h2>
+      <p>共 {{ records|length }} 条</p>
+    </div>
+    <form class="search-form" action="{{ url_for('admin.feedback_records') }}" method="get" role="search">
+      <label class="sr-only" for="feedbackSearch">搜索反馈</label>
+      <input id="feedbackSearch" type="search" name="q" value="{{ search }}" placeholder="搜索原因、说明或反馈人">
+      <select name="rating" aria-label="反馈类型">
+        <option value="" {% if not rating %}selected{% endif %}>全部类型</option>
+        <option value="like" {% if rating == 'like' %}selected{% endif %}>点赞</option>
+        <option value="dislike" {% if rating == 'dislike' %}selected{% endif %}>点踩</option>
+      </select>
+      <button class="button button--secondary" type="submit">筛选</button>
+      {% if search or rating %}<a class="text-link" href="{{ url_for('admin.feedback_records') }}">清除</a>{% endif %}
+    </form>
+  </div>
+
+  {% if records %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">时间</th>
+            <th scope="col">类型</th>
+            <th scope="col">反馈原因</th>
+            <th scope="col">补充说明</th>
+            <th scope="col">反馈人</th>
+            <th scope="col">消息 ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in records %}
+            <tr>
+              <td class="nowrap">{{ record.created_at }}</td>
+              <td>
+                <span class="status {% if record.rating == 'like' %}status--approved{% else %}status--rejected{% endif %}">
+                  {{ '点赞' if record.rating == 'like' else '点踩' }}
+                </span>
+              </td>
+              <td>{{ record.reason or '—' }}</td>
+              <td class="reason-cell">{{ record.comment or '—' }}</td>
+              <td>{{ record.actor_username or '匿名用户' }}</td>
+              <td><code class="id-code">{{ record.message_id }}</code></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon" aria-hidden="true">◌</div>
+      <h3>暂无反馈记录</h3>
+      <p>用户在聊天页点赞或点踩后，反馈会出现在这里。</p>
+    </div>
+  {% endif %}
+</div>
+
+<div class="info-banner">
+  反馈记录是 Dify 原生反馈的本地镜像；如果这里没有历史数据，请以 Dify 应用的「日志 → 用户反馈」为准。
+</div>
+{% endblock %}

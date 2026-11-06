@@ -1,0 +1,73 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ '新建用户' if mode == 'new' else '编辑用户' }}{% endblock %}
+{% block content %}
+<nav class="breadcrumb" aria-label="面包屑">
+  <a href="{{ url_for('admin.users') }}">用户管理</a>
+  <span aria-hidden="true">/</span>
+  <span>{{ '新建用户' if mode == 'new' else user.username }}</span>
+</nav>
+
+<div class="page-heading page-heading--compact">
+  <div>
+    <p class="eyebrow">{{ 'NEW USER' if mode == 'new' else 'EDIT USER' }}</p>
+    <h1>{{ '新建用户' if mode == 'new' else '编辑用户' }}</h1>
+    <p class="page-description">
+      {% if mode == 'new' %}
+        创建唯一账号并指定角色。初始密码只会用于生成哈希，不会保存明文。
+      {% else %}
+        修改用户资料、角色和状态。填写新密码会立即让该用户的旧 Session 失效。
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+<form class="form-card" method="post" action="{% if mode == 'new' %}{{ url_for('admin.new_user') }}{% else %}{{ url_for('admin.edit_user', user_id=user.id) }}{% endif %}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <section class="form-section">
+    <div class="form-section__heading">
+      <h2>账号信息</h2>
+      <p>账号创建后不可修改，显示名称可以随时更新。</p>
+    </div>
+    <div class="form-grid form-grid--two">
+      <label class="field">
+        <span>账号 <em>*</em></span>
+        <input type="text" name="username" value="{{ form.username }}" maxlength="32" pattern="[A-Za-z0-9_.-]{3,32}" {% if mode == 'edit' %}readonly{% else %}required{% endif %} placeholder="例如：zhangsan">
+        {% if mode == 'edit' %}<span class="field-hint">账号不可修改。</span>{% else %}<span class="field-hint">3–32 位，只允许字母、数字、点、下划线和短横线。</span>{% endif %}
+      </label>
+      <label class="field">
+        <span>显示名称 <em>*</em></span>
+        <input type="text" name="display_name" value="{{ form.display_name }}" maxlength="50" required placeholder="例如：张三">
+      </label>
+      <label class="field">
+        <span>角色 <em>*</em></span>
+        <select name="role" required>
+          {% for role, label in role_labels.items() %}
+            <option value="{{ role }}" {% if form.role == role %}selected{% endif %}>{{ label }} · {{ role_descriptions.get(role, '') }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span>{{ '初始密码' if mode == 'new' else '重置密码' }} {% if mode == 'new' %}<em>*</em>{% else %}<small>留空则不修改</small>{% endif %}</span>
+        <input type="password" name="password" autocomplete="new-password" minlength="{{ min_password_length }}" {% if mode == 'new' %}required{% endif %} placeholder="至少 {{ min_password_length }} 位">
+      </label>
+    </div>
+  </section>
+
+  <section class="form-section">
+    <div class="form-section__heading">
+      <h2>账号状态</h2>
+      <p>停用后，该用户已有登录会话会立即失效，且不能再次登录。</p>
+    </div>
+    <label class="checkbox-field">
+      <input type="checkbox" name="is_active" value="1" {% if form.is_active %}checked{% endif %}>
+      <span>启用该账号</span>
+    </label>
+  </section>
+
+  <div class="form-actions">
+    <a class="button button--ghost" href="{{ url_for('admin.users') }}">取消</a>
+    <button class="button button--primary" type="submit">{{ '创建用户' if mode == 'new' else '保存修改' }}</button>
+  </div>
+</form>
+{% endblock %}

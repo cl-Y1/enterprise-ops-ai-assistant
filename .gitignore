@@ -30,6 +30,7 @@ instance/
 preview*.png
 ui-*.png
 admin-*.png
+rbac-*.png
 preview-profile*/
 
 # 编辑器和系统文件

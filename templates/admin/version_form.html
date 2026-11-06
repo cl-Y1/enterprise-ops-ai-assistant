@@ -1,20 +1,24 @@
 {% extends "admin/base.html" %}
-{% block title %}新增版本 · {{ document.title }}{% endblock %}
+{% block title %}{% if mode == 'edit' %}编辑草稿 v{{ version.version_no }}{% else %}新增版本{% endif %} · {{ document.title }}{% endblock %}
 {% block content %}
 <nav class="breadcrumb" aria-label="面包屑">
   <a href="{{ url_for('admin.documents') }}">文档版本管理</a>
   <span aria-hidden="true">/</span>
   <a href="{{ url_for('admin.document_detail', document_id=document.id) }}">{{ document.title }}</a>
   <span aria-hidden="true">/</span>
-  <span>新增版本</span>
+  <span>{% if mode == 'edit' %}编辑 v{{ version.version_no }}{% else %}新增版本{% endif %}</span>
 </nav>
 
 <div class="page-heading page-heading--compact">
   <div>
-    <p class="eyebrow">NEW VERSION</p>
-    <h1>新增版本</h1>
+    <p class="eyebrow">{{ 'EDIT DRAFT' if mode == 'edit' else 'NEW VERSION' }}</p>
+    <h1>{% if mode == 'edit' %}编辑草稿 v{{ version.version_no }}{% else %}新增版本{% endif %}</h1>
     <p class="page-description">
-      为「{{ document.title }}」创建 v{{ (latest.version_no if latest else 0) + 1 }}。保存后状态为草稿，审核和发布在文档详情页完成。
+      {% if mode == 'edit' %}
+        修改后会保留版本号 v{{ version.version_no }}，并重新记录内容哈希和操作审计。
+      {% else %}
+        为「{{ document.title }}」创建 v{{ (latest.version_no if latest else 0) + 1 }}。保存后状态为草稿，审核和发布在文档详情页完成。
+      {% endif %}
     </p>
   </div>
 </div>
@@ -28,7 +32,7 @@
   </div>
 {% endif %}
 
-<form class="form-card" method="post" action="{{ url_for('admin.add_version', document_id=document.id) }}">
+<form class="form-card" method="post" action="{% if mode == 'edit' %}{{ url_for('admin.edit_version', version_id=version.id) }}{% else %}{{ url_for('admin.add_version', document_id=document.id) }}{% endif %}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
   <section class="form-section">
@@ -41,14 +45,14 @@
         <span>本次更新原因 <em>*</em></span>
         <input type="text" name="update_reason" value="{{ form.update_reason }}" maxlength="500" required placeholder="例如：修正连接池参数，补充回滚步骤">
       </label>
-      <div class="field-help">更新人将记录为当前管理员：{{ admin_username }}。</div>
+      <div class="field-help">更新人将记录为当前账号：{{ current_user.username }}（{{ role_labels.get(current_user.role, current_user.role) }}）。</div>
     </div>
   </section>
 
   <section class="form-section">
     <div class="form-section__heading">
       <h2>文档内容</h2>
-      <p>默认带入上一版本内容，请直接修改需要更新的部分。</p>
+      <p>{% if mode == 'edit' %}直接修改草稿内容，保存后仍为草稿/已驳回状态。{% else %}默认带入上一版本内容，请直接修改需要更新的部分。{% endif %}</p>
     </div>
     <label class="field">
       <span>Markdown / 纯文本 <em>*</em></span>
@@ -58,8 +62,8 @@
   </section>
 
   <div class="form-actions">
-    <a class="button button--ghost" href="{{ url_for('admin.document_detail', document_id=document.id) }}">取消</a>
-    <button class="button button--primary" type="submit">保存为草稿</button>
+    <a class="button button--ghost" href="{% if mode == 'edit' and version %}{{ url_for('admin.document_detail', document_id=document.id, version=version.id) }}{% else %}{{ url_for('admin.document_detail', document_id=document.id) }}{% endif %}">取消</a>
+    <button class="button button--primary" type="submit">{{ '保存修改' if mode == 'edit' else '保存为草稿' }}</button>
   </div>
 </form>
 {% endblock %}

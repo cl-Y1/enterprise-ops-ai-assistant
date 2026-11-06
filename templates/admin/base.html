@@ -19,14 +19,30 @@
           </svg>
         </span>
         <span>
-          <strong>文档版本管理</strong>
-          <small>企业智能运维知识助手 · V1.3</small>
+          <strong>知识运维后台</strong>
+          <small>企业智能运维知识助手 · V1.4</small>
         </span>
       </a>
+
       <nav class="admin-nav" aria-label="后台导航">
-        <a href="{{ url_for('index') }}">返回聊天</a>
-        <span class="admin-user">管理员：{{ admin_username }}</span>
+        {% if can('documents.view') %}<a href="{{ url_for('admin.documents') }}" {% if request.endpoint and request.endpoint.startswith('admin.documents') or request.endpoint in ['admin.document_detail', 'admin.new_document', 'admin.edit_document', 'admin.add_version', 'admin.edit_version'] %}class="is-active"{% endif %}>文档管理</a>{% endif %}
+        {% if can('feedback.view') %}<a href="{{ url_for('admin.feedback_records') }}" {% if request.endpoint == 'admin.feedback_records' %}class="is-active"{% endif %}>反馈记录</a>{% endif %}
+        {% if can('users.manage') %}<a href="{{ url_for('admin.users') }}" {% if request.endpoint in ['admin.users', 'admin.new_user', 'admin.edit_user'] %}class="is-active"{% endif %}>用户管理</a>{% endif %}
+        {% if can('roles.view') %}<a href="{{ url_for('admin.roles') }}" {% if request.endpoint == 'admin.roles' %}class="is-active"{% endif %}>角色权限</a>{% endif %}
+        {% if can('audit.view') %}<a href="{{ url_for('admin.audit_logs') }}" {% if request.endpoint == 'admin.audit_logs' %}class="is-active"{% endif %}>操作日志</a>{% endif %}
       </nav>
+
+      <div class="admin-account">
+        <a class="admin-chat-link" href="{{ url_for('index') }}">返回聊天</a>
+        <span class="admin-user">
+          <span class="admin-role">{{ role_labels.get(current_user.role, current_user.role) }}</span>
+          {{ current_user.display_name }}
+        </span>
+        <form method="post" action="{{ url_for('auth.logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="admin-logout" type="submit">退出</button>
+        </form>
+      </div>
     </div>
   </header>
 
@@ -47,7 +63,7 @@
   <footer class="admin-footer">
     <span>文档版本管理 · SQLite 本地记录</span>
     <span aria-hidden="true">·</span>
-    <span>审核通过并在 Dify 完成同步后方可发布</span>
+    <span>审核通过、Dify 索引成功且 RAG 验证通过后方可由管理员发布</span>
   </footer>
 
   <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>

@@ -7,7 +7,7 @@
   <p>{{ message }}</p>
   <div class="button-row">
     <a class="button button--primary" href="{{ url_for('index') }}">返回聊天</a>
-    <a class="button button--ghost" href="{{ url_for('admin.documents') }}">打开文档管理</a>
+    {% if can('documents.view') %}<a class="button button--ghost" href="{{ url_for('admin.documents') }}">打开文档管理</a>{% endif %}
   </div>
 </section>
 {% endblock %}

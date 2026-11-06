@@ -1,0 +1,75 @@
+{% extends "admin/base.html" %}
+{% block title %}角色权限{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">ROLE MATRIX</p>
+    <h1>角色权限</h1>
+    <p class="page-description">三类内置角色的权限矩阵。角色定义是系统安全边界，管理员通过“用户管理”为用户分配角色，而不是直接改写权限矩阵。</p>
+  </div>
+  <a class="button button--secondary" href="{{ url_for('admin.users') }}">去分配用户角色</a>
+</div>
+
+<div class="role-card-grid">
+  {% for role, label in role_labels.items() %}
+    <div class="role-card role-card--{{ role }}">
+      <div class="role-card__head">
+        <span class="status status--role-{{ role }}">{{ label }}</span>
+        <strong>{{ role_counts[role] }}</strong>
+      </div>
+      <p>{{ role_descriptions.get(role, '') }}</p>
+      <span class="role-card__code">{{ role }}</span>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="panel">
+  <div class="panel-toolbar">
+    <div>
+      <h2>权限矩阵</h2>
+      <p>✓ 表示该角色拥有权限。管理员拥有全部权限。</p>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table permission-table">
+      <thead>
+        <tr>
+          <th scope="col">模块</th>
+          <th scope="col">权限</th>
+          {% for role, label in role_labels.items() %}
+            <th scope="col" class="center">{{ label }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% set current_group = namespace(name='') %}
+        {% for row in permission_rows %}
+          {% if row.group != current_group.name %}
+            {% set current_group.name = row.group %}
+            <tr class="permission-group-row">
+              <td colspan="5">{{ row.group }}</td>
+            </tr>
+          {% endif %}
+          <tr>
+            <td class="muted">{{ row.group }}</td>
+            <td>{{ row.label }} <code class="permission-code">{{ row.code }}</code></td>
+            {% for role, label in role_labels.items() %}
+              <td class="center">
+                {% if row.roles[role] %}
+                  <span class="permission-yes" aria-label="有权限">✓</span>
+                {% else %}
+                  <span class="permission-no" aria-label="无权限">—</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="info-banner">
+  关键安全规则由后端强制执行：运维人员不能审核或发布；提交人不能审核自己的版本；只有管理员能发布；未登录用户不能访问任何管理路由。
+</div>
+{% endblock %}

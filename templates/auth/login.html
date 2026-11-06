@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>登录 · 企业智能运维知识助手</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body class="login-body">
+  <main class="login-shell">
+    <section class="login-intro">
+      <a class="login-brand" href="{{ url_for('index') }}">
+        <span class="login-brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3 4.5 6.5v5.2c0 4.4 3.1 8.2 7.5 9.3 4.4-1.1 7.5-4.9 7.5-9.3V6.5L12 3Z"></path>
+            <path d="m9 12 2 2 4-4"></path>
+          </svg>
+        </span>
+        <span>
+          <strong>企业智能运维知识助手</strong>
+          <small>Enterprise Ops AI Assistant · V1.4</small>
+        </span>
+      </a>
+
+      <div class="login-intro__copy">
+        <p class="eyebrow">SECURE ACCESS</p>
+        <h1>让知识、变更与责任<br>都有清晰归属</h1>
+        <p>基于 Dify + DeepSeek + RAG 的运维知识问答与文档版本治理平台。不同角色拥有不同的工作边界。</p>
+      </div>
+
+      <div class="login-roles">
+        <div class="login-role">
+          <span class="login-role__icon" aria-hidden="true">01</span>
+          <div><strong>普通员工</strong><p>提问、点赞、点踩与文字反馈。</p></div>
+        </div>
+        <div class="login-role">
+          <span class="login-role__icon" aria-hidden="true">02</span>
+          <div><strong>运维人员</strong><p>维护文档版本、Dify 同步与 RAG 验证。</p></div>
+        </div>
+        <div class="login-role">
+          <span class="login-role__icon" aria-hidden="true">03</span>
+          <div><strong>管理员</strong><p>管理用户角色，审核、发布与查看审计日志。</p></div>
+        </div>
+      </div>
+
+      <a class="login-chat-link" href="{{ url_for('index') }}">先去看看知识问答 <span aria-hidden="true">→</span></a>
+    </section>
+
+    <section class="login-panel" aria-labelledby="loginTitle">
+      <div class="login-card">
+        <div class="login-card__head">
+          <p class="eyebrow">SIGN IN</p>
+          <h2 id="loginTitle">登录工作台</h2>
+          <p>使用管理员分配的企业账号登录。</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-stack" role="status">
+              {% for category, message in messages %}
+                <div class="flash flash--{{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% if not has_users %}
+          <div class="login-setup-note">
+            系统尚未创建任何账号。请在后端配置 <code>INITIAL_ADMIN_PASSWORD</code> 后重启，
+            或运行 <code>flask --app app create-admin</code> 初始化管理员。
+          </div>
+        {% endif %}
+
+        <form class="login-form" method="post" action="{{ url_for('auth.login_post') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="next" value="{{ next_url }}">
+          <label class="field">
+            <span>账号</span>
+            <input type="text" name="username" value="{{ username }}" autocomplete="username" required autofocus placeholder="请输入账号">
+          </label>
+          <label class="field">
+            <span>密码</span>
+            <input type="password" name="password" autocomplete="current-password" required placeholder="请输入密码">
+          </label>
+          <button class="button button--primary button--block login-submit" type="submit">登录</button>
+        </form>
+
+        <p class="login-note">密码不会明文保存。连续登录失败会记录在操作日志中。</p>
+      </div>
+      <p class="login-footer">企业智能运维知识助手 · Session 认证 · 角色权限隔离</p>
+    </section>
+  </main>
+</body>
+</html>

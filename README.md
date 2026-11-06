@@ -1,216 +1,194 @@
-# 企业智能运维知识助手 V1.3
+# 企业智能运维知识助手 V1.4
 
-> 基于 **Dify Chatflow + DeepSeek + RAG** 的企业运维知识问答页面，支持多轮对话、点赞/点踩、反馈原因，以及带审核、发布、归档和 Dify 同步衔接的文档版本管理。
+> 基于 **Dify Chatflow + DeepSeek + RAG** 的企业运维知识问答与文档版本治理平台，新增普通员工、运维人员、管理员三类角色权限。
 >
 > GitHub 仓库：<https://github.com/cl-Y1/enterprise-ops-ai-assistant><br>
 > [![tests](https://github.com/cl-Y1/enterprise-ops-ai-assistant/actions/workflows/tests.yml/badge.svg)](https://github.com/cl-Y1/enterprise-ops-ai-assistant/actions/workflows/tests.yml)
 
-本项目不重新开发 RAG，也不修改原有 Chatflow 的核心逻辑。V1.3 在现有 Dify 应用之上提供两个模块：
+V1.4 **只增加权限管理，不重写已有功能**。以下能力继续保留：
 
-1. **智能问答**：Flask 后端代理 Dify Chatflow，支持多轮对话和消息反馈；
-2. **文档版本管理**：SQLite 保存文档、版本、审核、发布、Dify 同步登记和操作审计。
+1. Dify Chatflow 问答；
+2. 点赞、点踩和反馈原因；
+3. 文档版本管理；
+4. 文档审核、Dify 同步登记、RAG 验证和版本发布。
 
-聊天与反馈仍使用 Dify 原生记录；文档治理数据保存在本地 SQLite，二者互不破坏。
+新增：
+
+- 用户登录、退出、Session 失效；
+- 普通员工 / 运维人员 / 管理员三角色；
+- 用户管理、角色权限矩阵、反馈记录、操作日志；
+- 后端逐路由权限校验与前端菜单/按钮隐藏；
+- 提交人不可自审、运维人员不可发布；
+- 发布前必须通过审核、Dify 同步、索引成功和 RAG 验证。
 
 ---
 
-## 1. 功能清单
+## 1. 角色权限矩阵
 
-### 智能问答
+| 能力 | 普通员工 employee | 运维人员 operator | 管理员 admin |
+| --- | :---: | :---: | :---: |
+| 使用 AI 知识问答 | ✓ | ✓ | ✓ |
+| 点赞、点踩、文字反馈 | ✓ | ✓ | ✓ |
+| 查看反馈记录 | — | ✓ | ✓ |
+| 进入管理后台 | — | ✓ | ✓ |
+| 查看文档与历史版本 | — | ✓ | ✓ |
+| 创建文档/版本 | — | ✓ | ✓ |
+| 编辑文档信息和草稿 | — | ✓ | ✓ |
+| 提交文档审核 | — | ✓ | ✓ |
+| 下载/复制 Markdown | — | ✓ | ✓ |
+| 登记 Dify 同步与索引状态 | — | ✓ | ✓ |
+| 执行并登记 RAG 验证 | — | ✓ | ✓ |
+| 审核/驳回文档 | — | — | ✓ |
+| 发布文档版本 | — | — | ✓ |
+| 管理全部历史版本 | — | 查看/下载 | ✓ |
+| 查看全部反馈 | — | ✓ | ✓ |
+| 管理用户与角色 | — | — | ✓ |
+| 查看角色权限矩阵 | — | — | ✓ |
+| 查看操作日志 | — | — | ✓ |
 
-- 调用 Dify `POST /v1/chat-messages`，阻塞模式获取回答；
-- 正确保存并传递 `conversation_id`，支持连续多轮；
-- 每条 AI 回答关联独立 `message_id`；
-- 点赞、点踩按钮；
-- 点踩选择六种原因，并可填写补充说明；
-- 反馈提交到 Dify 原生消息反馈 API；
-- 前后端双重防止重复反馈；
-- 超时、断网、401、404、429、空回答均有脱敏中文提示。
+### 关键约束
 
-### 文档版本管理
-
-- 文档基础信息：标题、分类、负责人、说明、Dify 数据集/文档 ID；
-- 自动版本号：`v1`、`v2`……；
-- 每个版本记录：更新原因、更新人、内容快照、SHA-256；
-- 审核状态：草稿、待审核、审核通过、已驳回；
-- 发布状态：未发布、已发布、已归档；
-- 审核通过后，若关联 Dify，必须先登记同步才能发布；
-- 发布新版本时，旧发布版本自动归档，历史内容永久保留；
-- 历史版本下载为 `.md`；
-- 操作审计：创建、提交审核、审核、Dify 同步、发布、自动归档；
-- 简洁管理后台，Basic Auth + CSRF 防护；
-- 详细 Dify 衔接流程见 [docs/dify-sync-workflow.md](docs/dify-sync-workflow.md)。
+- 普通员工访问任何 `/admin` 路由都会返回 403；
+- 前端隐藏按钮，但后端每个路由独立校验，不能只靠隐藏；
+- 提交人不能审核自己的版本；管理员也一样；
+- 运维人员不能审核、不能发布；
+- 只有管理员能发布；
+- 关联 Dify 的版本发布前必须满足：
+  1. 审核状态 `approved`；
+  2. Dify 同步状态 `synced`；
+  3. Dify 索引状态 `success`；
+  4. RAG 验证状态 `passed`；
+- 未关联 Dify 的本地文档只需审核通过即可由管理员发布。
 
 ---
 
 ## 2. 系统架构
 
 ```text
-┌──────────────────────────────┐        ┌──────────────────────────────┐
-│ 聊天页面                     │        │ 文档版本管理后台              │
-│ HTML + CSS + 原生 JavaScript │        │ /admin/documents              │
-│ 点赞 / 点踩 / 反馈弹窗       │        │ 审核 / 发布 / 归档 / 下载     │
-└──────────────┬───────────────┘        └──────────────┬───────────────┘
-               │ 同源 HTTP / JSON                      │ Basic Auth + CSRF
-               ▼                                       ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ Flask app.py / admin.py                                             │
-│ - 聊天与反馈代理                                                    │
-│ - 文档版本状态机                                                    │
-│ - 输入校验、错误脱敏                                                │
-│ - SQLite 文档/版本/审计数据                                         │
-└──────────────┬──────────────────────────────────────────────────────┘
-               │ Authorization: Bearer {DIFY_API_KEY}
-               ▼
-┌──────────────────────────────┐        ┌──────────────────────────────┐
-│ Dify Cloud Chatflow           │        │ 本地 SQLite                  │
-│ - RAG 知识库检索              │        │ instance/ops_assistant.db    │
-│ - DeepSeek 生成回答           │        │ 文档 / 版本 / 状态 / 审计    │
-│ - 原生消息反馈记录             │        └──────────────────────────────┘
-└──────────────────────────────┘
-               ▲
-               │ 人工确认同步：下载 Markdown → Dify 替换 → 索引完成 → 后台登记 → 发布
-               │
-┌──────────────┴───────────────┐
-│ 管理员 / 知识库负责人          │
-└──────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ 浏览器                                                      │
+│  - 聊天页（公开，保留既有问答体验）                          │
+│  - 登录页 / 登出                                            │
+│  - 管理后台：按角色显示菜单和操作按钮                        │
+└───────────────┬─────────────────────────────────────────────┘
+                │ Flask signed Session
+                ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Flask                                                       │
+│ app.py       聊天/反馈代理、Session 加载、配置               │
+│ auth.py      用户、角色、密码哈希、登录/退出、CSRF、审计     │
+│ admin.py     按权限保护的后台路由                            │
+│ documents.py 文档版本、审核、同步、索引、RAG、发布状态机     │
+│ feedback_store.py 本地反馈镜像                               │
+└───────────────┬─────────────────────────────────────────────┘
+                │
+                ├── Dify Chatflow API（原样保留）
+                └── SQLite
+                    users / audit_logs / feedback_records
+                    documents / document_versions / version_events
 ```
-
-Dify 知识库写入是**人工确认流程**，V1.3 不会自动覆盖生产知识库。原因和后续自动同步扩展点见 [Dify 衔接流程](docs/dify-sync-workflow.md)。
 
 ---
 
-## 3. 技术栈
+## 3. 技术栈与目录
 
 - 前端：HTML + CSS + 原生 JavaScript
 - 后端：Python 3.12 + Flask
-- 数据库：SQLite（Python 标准库，不额外安装）
-- AI 服务：Dify Cloud Chatflow + DeepSeek + RAG
-- 测试：Python `unittest`，GitHub Actions
-
----
-
-## 4. 目录结构
+- 数据库：SQLite（Python 标准库）
+- 认证：Flask 签名 Session + `session_version`
+- 密码：Werkzeug `scrypt` 哈希
+- AI：Dify Cloud Chatflow + DeepSeek + RAG
+- 测试：`unittest` + GitHub Actions
 
 ```text
 enterprise-ops-ai-assistant/
-├── app.py                         # Flask 工厂、聊天、反馈、健康检查
-├── admin.py                       # 文档管理后台路由、认证、CSRF
-├── documents.py                   # SQLite 数据层、版本状态机、审计
+├── app.py                       # Flask 工厂、聊天、反馈、Session 上下文
+├── auth.py                      # 用户/角色/登录/CSRF/审计
+├── admin.py                     # 后台路由与权限校验
+├── documents.py                 # 文档版本状态机
+├── feedback_store.py            # 本地反馈镜像
 ├── requirements.txt
 ├── .env.example
 ├── .gitignore
 ├── README.md
 │
 ├── templates/
-│   ├── index.html                 # 聊天页面
+│   ├── index.html
+│   ├── auth/login.html
 │   └── admin/
 │       ├── base.html
-│       ├── documents.html         # 文档列表
-│       ├── document_form.html     # 新建/编辑文档
-│       ├── version_form.html      # 新增版本
-│       ├── document_detail.html   # 版本详情、审核、发布、Dify 同步
+│       ├── documents.html
+│       ├── document_form.html
+│       ├── version_form.html
+│       ├── document_detail.html
+│       ├── feedback.html
+│       ├── users.html
+│       ├── user_form.html
+│       ├── roles.html
+│       ├── audit.html
 │       └── error.html
 │
 ├── static/
-│   ├── css/
-│   │   ├── style.css              # 聊天页样式
-│   │   └── admin.css              # 管理后台样式
-│   └── js/
-│       ├── app.js                 # 聊天/反馈交互
-│       └── admin.js               # 复制、发布确认
+│   ├── css/style.css
+│   ├── css/admin.css
+│   ├── css/login.css
+│   └── js/app.js / admin.js
 │
 ├── tests/
-│   ├── __init__.py
-│   ├── test_app.py                # 22 项聊天/反馈测试
-│   └── test_documents.py          # 14 项文档模块测试
+│   ├── test_app.py              # 22 项聊天/反馈
+│   ├── test_documents.py        # 14 项文档工作流/RBAC
+│   └── test_rbac.py             # 10 项账号/角色/审计
 │
-├── docs/
-│   └── dify-sync-workflow.md      # Dify 知识库更新作业指导书
-│
-└── .github/
-    └── workflows/
-        └── tests.yml              # GitHub Actions 单元测试
+├── docs/dify-sync-workflow.md
+└── .github/workflows/tests.yml
 ```
 
-`instance/` 数据库、`.env`、`.venv` 和本地截图都会被 `.gitignore` 排除。
-
 ---
 
-## 5. 环境要求
+## 4. 快速开始
 
-已在以下环境验证：
-
-- Windows 11
-- Python 3.12.6
-- Flask 3.1.3
-- requests 2.34.2
-- python-dotenv 1.2.4
-- 可访问 `https://api.dify.ai`
-- 已发布 Dify Chatflow，并开启应用 API 访问
-
-Python 3.10 及以上可尝试使用。
-
----
-
-## 6. 快速开始（Windows PowerShell）
-
-### 6.1 进入项目并创建虚拟环境
+### 4.1 安装
 
 ```powershell
 cd "D:\你的路径\enterprise-ops-ai-assistant"
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-```
-
-如果 PowerShell 禁止运行脚本：
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
-```
-
-### 6.2 安装依赖
-
-```powershell
 python -m pip install -r requirements.txt
 ```
 
-### 6.3 配置环境变量
+### 4.2 配置 `.env`
 
 ```powershell
 Copy-Item .env.example .env
 notepad .env
 ```
 
-最少需要填写：
+至少填写：
 
 ```dotenv
 DIFY_API_KEY=app-你的Dify应用Key
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=设置一个足够强的管理员密码
+
+INITIAL_ADMIN_USERNAME=admin
+INITIAL_ADMIN_PASSWORD=至少8位的强密码
+INITIAL_ADMIN_DISPLAY_NAME=系统管理员
+
+SECRET_KEY=一段足够长的随机字符串
 ```
 
-建议同时设置固定的会话密钥：
+生成 `SECRET_KEY`：
 
 ```powershell
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-把输出填入：
-
-```dotenv
-SECRET_KEY=上一步生成的随机字符串
-```
-
 说明：
 
-- `DIFY_API_KEY` 是聊天应用 API Key，不要填知识库 API Key；
-- `ADMIN_PASSWORD` 留空时管理后台会返回 503，不会暴露默认密码；
-- `SECRET_KEY` 留空会每次启动随机生成，重启后管理员会话需重新建立；
-- `.env` 已被 `.gitignore` 忽略，严禁提交。
+- 只有当 `users` 表为空时，`INITIAL_ADMIN_*` 才会创建初始管理员；
+- 创建完成后建议清空 `INITIAL_ADMIN_PASSWORD`，账号已经保存的是 scrypt 哈希；
+- 兼容旧版 `.env` 的 `ADMIN_USERNAME` / `ADMIN_PASSWORD`：首次启动且无用户时会迁移为初始管理员；旧密码可能不足 8 位，登录后请在用户管理中重置；
+- 新密码策略仍为至少 8 位。
 
-### 6.4 启动
+### 4.3 启动
 
 ```powershell
 python app.py
@@ -219,330 +197,253 @@ python app.py
 访问：
 
 ```text
-聊天页面：http://127.0.0.1:5000/
-文档管理：http://127.0.0.1:5000/admin/documents
+登录：  http://127.0.0.1:5000/login
+聊天：  http://127.0.0.1:5000/
+后台：  http://127.0.0.1:5000/admin/documents
 ```
 
-管理后台会弹出浏览器 Basic Auth 登录框，输入 `ADMIN_USERNAME` / `ADMIN_PASSWORD`。
-
-首次启动会自动创建：
+首次启动自动创建：
 
 ```text
 instance/ops_assistant.sqlite3
 ```
 
-不需要手动建库。
+### 4.4 另一种初始化方式
+
+不配置初始管理员密码时，可以用隐藏输入的命令创建：
+
+```powershell
+.\.venv\Scripts\python.exe -m flask --app app create-admin
+```
+
+密码只通过隐藏输入读取，保存 scrypt 哈希，不写入代码或日志。
 
 ---
 
-## 7. 环境变量
+## 5. 登录、退出与 Session
 
-| 变量 | 必填 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `DIFY_API_KEY` | 是 | 空 | Dify 应用 API Key，只放后端 |
-| `DIFY_API_BASE_URL` | 否 | `https://api.dify.ai/v1` | Dify API 地址 |
-| `DIFY_USER_ID` | 否 | `demo-user-001` | 聊天与反馈的终端用户标识 |
-| `DIFY_TIMEOUT` | 否 | `60` | Dify 请求读取超时（秒） |
-| `ADMIN_USERNAME` | 否 | `admin` | 文档后台用户名 |
-| `ADMIN_PASSWORD` | 是 | 空 | 文档后台密码；为空则后台禁用 |
-| `SECRET_KEY` | 建议 | 随机生成 | Flask 会话签名密钥 |
-| `DATABASE_PATH` | 否 | `instance/ops_assistant.sqlite3` | SQLite 文件位置 |
-| `MAX_DOCUMENT_CONTENT` | 否 | `200000` | 单篇文档内容上限 |
-| `HOST` | 否 | `127.0.0.1` | 本地监听地址 |
-| `PORT` | 否 | `5000` | 本地端口 |
-| `FLASK_DEBUG` | 否 | `0` | 生产/演示保持 0 |
+### 登录
 
----
+- 账号由管理员在「用户管理」中创建；
+- 登录成功后：
 
-## 8. Dify 端需要检查什么
-
-本项目不修改原有 Chatflow、知识库和 RAG。只需要确认：
-
-1. Chatflow 已发布，未使用草稿版本；
-2. 应用已开启 API 访问；
-3. `DIFY_API_KEY` 与应用匹配；
-4. `DIFY_USER_ID` 在聊天和反馈中保持一致（后端自动保证）；
-5. Chatflow 没有新增必填输入变量，本项目发送 `inputs: {}`；
-6. 文档版本管理中的 Dify 数据集 ID、文档 ID 与 Dify 控制台一致。
-
-### 8.1 Dify 数据集/文档 ID 在哪里
-
-- **数据集 ID**：打开 Dify 知识库，从页面 URL 的 `/datasets/` 后复制；
-- **文档 ID**：在知识库文档详情或文档列表中获取。
-
-V1.3 不自动调用知识库写接口。正式自动同步需要额外的知识库 API Key，接入方式见 [Dify 衔接流程](docs/dify-sync-workflow.md)。
-
----
-
-## 9. 文档版本管理后台
-
-### 9.1 入口与认证
-
-访问：
-
-```text
-http://127.0.0.1:5000/admin/documents
-```
-
-认证方式：HTTP Basic Auth。
-
-- 未配置 `ADMIN_PASSWORD`：返回 503，后台禁用；
-- 用户名或密码错误：返回 401；
-- 所有写操作都有 CSRF token 校验；
-- 管理页面不显示密码、API Key 或数据库路径。
-
-> Basic Auth 在本地演示足够；如果部署到公网，必须使用 HTTPS。
-
-### 9.2 创建文档
-
-进入「新建文档」，填写：
-
-- 文档标题；
-- 分类、负责人、说明；
-- 可选：Dify 数据集 ID + 文档 ID（必须成对填写）；
-- 初始版本 v1 的更新原因和内容。
-
-创建后初始版本为「草稿 / 未发布」。
-
-### 9.3 版本与审核流程
-
-```text
-草稿 draft
-  │ 提交审核
-  ▼
-待审核 pending
-  ├── 审核通过 → approved
-  └── 审核驳回 → rejected → 修改后重新提交
-```
-
-审核通过后才允许进入发布阶段。审核意见、审核人和审核时间会记录在版本中。
-
-### 9.4 发布与历史归档
-
-```text
-未发布 unpublished
-  │ 发布
-  ▼
-已发布 published
-  │ 新版本发布
-  ▼
-已归档 archived
-```
-
-发布条件：
-
-- 审核状态必须是「审核通过」；
-- 如果文档关联了 Dify，`dify_sync_status` 必须是「已登记同步」；
-- 未关联 Dify 的文档审核通过后可以直接发布。
-
-新版本发布时：
-
-- 当前版本变为 `published`；
-- 之前的 `published` 版本自动变为 `archived`；
-- 所有版本内容继续保留，可下载追溯；
-- 写入操作记录。
-
-### 9.5 历史版本下载
-
-在版本内容区点击「下载 .md」，文件名类似：
-
-```text
-CBS-与-TDH-数据一致性排查手册-v2.md
-```
-
-可用于 Dify 知识库替换或本地归档。
-
-### 9.6 Dify 同步衔接
-
-完整作业指导书：[docs/dify-sync-workflow.md](docs/dify-sync-workflow.md)
-
-简要流程：
-
-1. 新增版本并提交审核；
-2. 审核通过；
-3. 下载/复制 Markdown；
-4. 在 Dify 知识库替换对应文档；
-5. 等待 Dify 重新分段和索引完成；
-6. 回后台填写同步说明，点击「确认已同步」；
-7. 点击「发布此版本」；
-8. 旧版本自动归档；
-9. 在聊天页面验证 RAG 回答。
-
-同步说明示例：
-
-```text
-2026-11-06 17:00 在 Dify 替换文档，索引状态 completed；操作人：admin
-```
-
-### 9.7 状态速查
-
-| 审核状态 | 中文 |
+| 角色 | 登录后跳转 |
 | --- | --- |
-| `draft` | 草稿 |
-| `pending` | 待审核 |
-| `approved` | 审核通过 |
-| `rejected` | 已驳回 |
+| 普通员工 | 聊天页面 `/` |
+| 运维人员 | 文档管理 `/admin/documents` |
+| 管理员 | 文档管理 `/admin/documents` |
 
-| 发布状态 | 中文 |
-| --- | --- |
-| `unpublished` | 未发布 |
-| `published` | 已发布 |
-| `archived` | 已归档 |
+### Session 安全
 
-| Dify 同步状态 | 中文 |
-| --- | --- |
-| `pending` | 待同步 |
-| `synced` | 已登记同步 |
-| `not_required` | 无需同步 |
+- Flask 签名 Session Cookie，`HttpOnly` + `SameSite=Lax`；
+- 数据库 `users.session_version` 做服务端失效校验；
+- 退出时递增 `session_version`，**旧的登录 Cookie 立即失效**；
+- 修改角色、停用账号、重置密码也会递增版本，让旧会话失效；
+- Session 默认有效期 8 小时，可通过 `SESSION_HOURS` 调整。
+
+### 聊天页公开性
+
+为保留既有问答体验，聊天页和聊天 API 保持公开；登录后聊天页会显示当前角色和后台入口。**所有管理路由都要求登录并做角色校验。**
 
 ---
 
-## 10. 聊天与反馈 API
+## 6. 管理后台页面
 
-### 10.1 `GET /api/health`
+| 页面 | 路径 | 权限 |
+| --- | --- | --- |
+| 文档管理 | `/admin/documents` | operator/admin |
+| 文档详情 | `/admin/documents/<id>` | operator/admin |
+| 新建文档 | `/admin/documents/new` | operator/admin |
+| 新增版本 | `/admin/documents/<id>/versions/new` | operator/admin |
+| 编辑草稿 | `/admin/versions/<id>/edit` | operator/admin |
+| 反馈记录 | `/admin/feedback` | operator/admin |
+| 用户管理 | `/admin/users` | admin |
+| 角色权限 | `/admin/roles` | admin |
+| 操作日志 | `/admin/audit` | admin |
 
-只检查后端是否读取到配置，不验证 Key 有效性，不返回密钥。
-
-```json
-{
-  "ok": true,
-  "configured": true,
-  "service": "企业智能运维知识助手",
-  "version": "1.3",
-  "document_management": true
-}
-```
-
-### 10.2 `POST /api/chat`
-
-```json
-{
-  "query": "CBS 与 TDH 数据记录数量不一致时，应该如何排查？",
-  "conversation_id": ""
-}
-```
-
-成功：
-
-```json
-{
-  "ok": true,
-  "answer": "建议按以下顺序排查……",
-  "message_id": "9da23599-e713-473b-982c-4328d4f5c78a",
-  "conversation_id": "45701982-8118-4bc5-8e9b-64562b4555f2"
-}
-```
-
-后端发往 Dify：
-
-```json
-{
-  "inputs": {},
-  "query": "用户问题",
-  "response_mode": "blocking",
-  "user": "demo-user-001",
-  "conversation_id": "上一轮会话 ID，首轮省略"
-}
-```
-
-### 10.3 `POST /api/feedback`
-
-点赞：
-
-```json
-{
-  "message_id": "9da23599-e713-473b-982c-4328d4f5c78a",
-  "rating": "like"
-}
-```
-
-点踩：
-
-```json
-{
-  "message_id": "9da23599-e713-473b-982c-4328d4f5c78a",
-  "rating": "dislike",
-  "reason": "答案不准确",
-  "comment": "缺少 Service 日志检查步骤"
-}
-```
-
-服务端组合后发往 Dify：
+### 文档工作流
 
 ```text
-反馈原因：答案不准确；补充说明：缺少 Service 日志检查步骤
+新建 v1 草稿
+  → 运维/管理员提交审核
+  → 管理员审核通过 / 驳回
+  → 运维下载 Markdown 并更新 Dify
+  → 运维登记同步说明 + 索引结果
+  → 运维在聊天页做 RAG 验证并登记结果
+  → 管理员发布
+  → 旧发布版本自动归档
 ```
 
-同一条 `message_id` 只允许成功提交一次，前端按钮锁定，后端登记表再次拦截。
+发布条件由后端强制：
 
-### 10.4 管理后台路由
+- 审核通过；
+- Dify 同步已登记；
+- Dify 索引成功；
+- RAG 验证通过；
+- 提交人不能是审核人；
+- 发布人必须是管理员。
+
+### 反馈记录
+
+- Dify 仍是反馈权威来源；
+- 每次 Dify 反馈成功后，本地额外保存一份镜像；
+- 运维人员和管理员可查看；
+- 普通员工不可访问。
+
+### 用户管理
+
+- 创建唯一账号；
+- 分配 employee/operator/admin；
+- 启用/停用；
+- 重置密码；
+- 不能停用或降级最后一个启用状态的管理员；
+- 管理员不能修改自己的角色或停用自己；
+- 密码只保存 scrypt 哈希。
+
+### 角色权限
+
+页面展示三角色完整权限矩阵。角色定义是系统安全边界，不开放随意改权限；管理员通过「用户管理」为用户分配角色。
+
+### 操作日志
+
+记录：
+
+- 登录成功/失败、退出；
+- 创建用户、修改用户、重置密码；
+- 创建文档、新增/编辑版本、提交审核；
+- 审核、Dify 同步、RAG 验证、发布；
+- 操作人、时间、对象、结果、IP 和说明；
+- 不记录密码、Token 或 API Key。
+
+---
+
+## 7. 接口权限说明
+
+### 公开接口
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/admin/documents` | 文档列表、搜索、统计 |
-| GET/POST | `/admin/documents/new` | 新建文档和初始版本 |
-| GET | `/admin/documents/<id>` | 文档详情、版本、审核、发布 |
-| GET/POST | `/admin/documents/<id>/edit` | 编辑文档元信息 |
-| GET/POST | `/admin/documents/<id>/versions/new` | 新增版本 |
-| POST | `/admin/versions/<id>/submit` | 提交审核 |
-| POST | `/admin/versions/<id>/review` | 审核通过/驳回 |
-| POST | `/admin/versions/<id>/sync` | 登记 Dify 同步 |
-| POST | `/admin/versions/<id>/publish` | 发布版本并归档旧版本 |
-| GET | `/admin/versions/<id>/download` | 下载版本 Markdown |
+| GET | `/` | 聊天页面，保持公开 |
+| GET/POST | `/login` | 登录页和登录提交 |
+| POST | `/api/chat` | Dify 问答代理 |
+| POST | `/api/feedback` | 点赞/点踩，成功后写本地镜像 |
+| GET | `/api/health` | 配置状态 |
 
-所有 POST 都需要 CSRF token 和 Basic Auth。
+### 登录后接口
+
+| 方法 | 路径 | 最低权限 |
+| --- | --- | --- |
+| POST | `/logout` | 已登录 + CSRF |
+| GET | `/admin/documents` | admin.access + documents.view |
+| GET/POST | `/admin/documents/new` | documents.create |
+| GET | `/admin/documents/<id>` | documents.view |
+| GET/POST | `/admin/documents/<id>/edit` | documents.edit |
+| GET/POST | `/admin/documents/<id>/versions/new` | documents.create |
+| GET/POST | `/admin/versions/<id>/edit` | documents.edit |
+| POST | `/admin/versions/<id>/submit` | documents.submit |
+| POST | `/admin/versions/<id>/review` | documents.review（仅 admin） |
+| POST | `/admin/versions/<id>/sync` | documents.sync |
+| POST | `/admin/versions/<id>/rag` | documents.rag |
+| POST | `/admin/versions/<id>/publish` | documents.publish（仅 admin） |
+| GET | `/admin/versions/<id>/download` | documents.download |
+| GET | `/admin/feedback` | feedback.view |
+| GET | `/admin/users` | users.manage（仅 admin） |
+| GET | `/admin/roles` | roles.view（仅 admin） |
+| GET | `/admin/audit` | audit.view（仅 admin） |
+
+所有后台 POST 都要求有效 CSRF token。未登录访问后台会重定向登录；普通员工访问后台返回 403。
+
+### 聊天/反馈 API
+
+原有接口契约不变：
+
+```text
+POST /api/chat
+POST /api/feedback
+```
+
+Dify 请求仍使用 `.env` 中 `DIFY_API_KEY`，不会进入前端。
 
 ---
 
-## 11. 数据模型
+## 8. 数据模型
 
-SQLite 三张表：
+同一个 SQLite 文件：
 
-### `documents`
+### `users`
 
-文档元信息、Dify 数据集/文档 ID、当前发布版本 ID。
+账号、显示名、scrypt 密码哈希、角色、启用状态、`session_version`、最后登录时间。
 
-### `document_versions`
+### `documents` / `document_versions`
 
-每个版本的：
+文档元信息、Dify 数据集/文档 ID，以及每个版本的：
 
-- 版本号、更新原因、更新人；
-- 内容、内容 SHA-256；
-- 审核状态、审核人、审核意见、审核时间；
+- 更新原因、更新人、内容 SHA-256；
+- 提交人/提交时间；
+- 审核状态、审核人、审核意见；
 - 发布状态、发布时间；
-- Dify 同步状态、同步说明、同步登记人/时间。
+- Dify 同步、索引状态；
+- RAG 验证问题、结果、验证人/时间。
+
+### `feedback_records`
+
+本地反馈镜像：`message_id`、rating、reason、comment、反馈人、时间。
+
+### `audit_logs`
+
+登录、用户管理、文档工作流的关键操作记录。
 
 ### `version_events`
 
-不可变操作记录：创建、提交审核、审核通过/驳回、Dify 同步、发布、自动归档。
+单个版本的操作时间线（创建、编辑、提交、审核、同步、RAG、发布、归档）。
 
 ---
 
-## 12. 安全设计
+## 9. Dify 衔接流程
+
+完整指导：[docs/dify-sync-workflow.md](docs/dify-sync-workflow.md)
+
+V1.4 是**人工确认同步**：
+
+1. 运维新增版本并提交审核；
+2. 管理员审核通过；
+3. 运维下载/复制 Markdown；
+4. 在 Dify 替换对应文档，等待重新分段和索引；
+5. 运维在后台登记同步说明与索引结果；
+6. 运维在聊天页执行 RAG 测试，登记验证结果；
+7. 管理员发布；
+8. 旧版本自动归档。
+
+不自动调用 Dify 知识库写接口，因为写操作需要独立 Knowledge API Key，且索引是异步的。官方接口：
+
+```text
+POST /datasets/{dataset_id}/documents/{document_id}/update-by-text
+```
+
+参考：[Dify Update Document by Text](https://docs.dify.ai/en/api-reference/documents/update-document-by-text)
+
+---
+
+## 10. 安全设计
 
 | 要求 | 实现 |
 | --- | --- |
-| Dify API Key 只在后端 | 环境变量读取，前端只请求 Flask |
-| 管理员密码 | `ADMIN_PASSWORD`，留空则后台禁用 |
-| 写操作防护 | Basic Auth + Session CSRF token |
-| Cookie | `HttpOnly` + `SameSite=Lax` |
-| 输入校验 | 标题、内容长度、Dify ID 格式、版本状态转换 |
-| 错误脱敏 | Dify 原始错误只写服务端日志 |
-| 数据库 | `instance/*.sqlite3` 被 Git 忽略 |
-| 浏览器防护 | CSP、`X-Frame-Options`、API/后台 `no-store` |
-| 本地访问 | 默认绑定 `127.0.0.1` |
-
-补充：
-
-- Basic Auth 不是企业级 SSO。正式环境建议接入公司登录、角色权限和 HTTPS；
-- 单一管理员账号无法实现职责分离，V1.3 仅用于轻量实践；
-- 归档版本不可重新发布，回滚应创建新版本，保持历史链路。
+| 密码不明文 | Werkzeug scrypt 哈希 |
+| 安全 Session | 签名 Cookie + `session_version` 服务端校验 |
+| 未授权访问 | 每个后台路由权限装饰器 |
+| 前端隐藏 | Jinja 根据 `can()` 隐藏菜单/按钮 |
+| CSRF | 登录、退出和所有后台 POST 校验 |
+| 初始管理员 | `INITIAL_ADMIN_*` 或隐藏输入 CLI |
+| 旧版兼容 | 旧 `ADMIN_PASSWORD` 仅用于首次迁移，建议重置 |
+| 防自审 | 提交人 ID 与审核人 ID 比较 |
+| 防越权发布 | 只有 `documents.publish`（admin）可发布 |
+| Dify 发布门槛 | 审核 + 同步 + 索引 + RAG 全部满足 |
+| 敏感信息 | `.env`、SQLite、截图、虚拟环境均 Git 忽略 |
+| 日志 | 不记录密码/Token/API Key |
 
 ---
 
-## 13. 测试记录
-
-### 13.1 自动化测试
+## 11. 测试结果
 
 ```powershell
 python -m unittest discover -s tests -v
@@ -551,156 +452,97 @@ python -m unittest discover -s tests -v
 结果：
 
 ```text
-Ran 36 tests
+Ran 46 tests
 OK
 ```
 
-包含：
+构成：
 
-- 原有聊天/反馈 22 项回归测试；
-- 文档模块 14 项测试：
-  - Basic Auth、后台禁用、CSRF；
-  - 文档创建、版本创建；
-  - 审核通过/驳回与重新提交；
-  - Dify 同步前置条件；
-  - 发布与旧版本自动归档；
-  - 下载 `.md`；
-  - 搜索、编辑、非法版本归属；
-  - 管理页面不泄露密码。
+- 22 项原有聊天/反馈回归；
+- 14 项文档工作流 + 角色边界；
+- 10 项认证/用户/角色/反馈/审计。
 
-GitHub Actions 会运行同一套测试，徽章显示在 README 顶部。
+覆盖要求中的场景：
 
-### 13.2 聊天回归
+1. 普通员工无法进入后台；
+2. 普通员工无法调用发布接口；
+3. 运维人员可以创建文档版本；
+4. 运维人员不能审核（包括自己提交的版本）；
+5. 运维人员不能发布；
+6. 管理员可以审核；
+7. 管理员可以发布满足条件的版本；
+8. 未登录不能访问管理路由；
+9. 退出后旧 Session 失效；
+10. 原有聊天、反馈、文档工作流正常。
 
-原有 10 项聊天验收清单仍适用：
-
-1. CBS/TDH 真实 RAG 回答；
-2. 多轮对话；
-3. 点赞；
-4. 点踩原因；
-5. 点踩补充说明；
-6. 防止重复反馈；
-7. 错误 API Key；
-8. 网络异常；
-9. 前端不暴露 Key；
-10. Dify 控制台查看反馈。
-
-其中 1–5、10 需要真实 Dify Key 才能最终验收；自动化已覆盖接口契约和异常路径。
-
-### 13.3 文档模块验收清单
-
-| # | 测试 | 预期 |
-| --- | --- | --- |
-| 1 | 未配置 `ADMIN_PASSWORD` 访问后台 | 返回 503，后台禁用 |
-| 2 | 错误密码访问 | 返回 401 |
-| 3 | 新建文档 | 生成 v1 草稿 |
-| 4 | 提交审核 | 状态变为待审核 |
-| 5 | 驳回但未填意见 | 操作被拒绝 |
-| 6 | 审核通过 | 状态变为审核通过 |
-| 7 | 关联 Dify 但未登记同步就发布 | 被拦截 |
-| 8 | 登记 Dify 同步后发布 | 发布成功 |
-| 9 | 创建 v2 并发布 | v1 自动归档，v2 发布 |
-| 10 | 下载历史版本 | 返回 `.md` 内容 |
-| 11 | 搜索文档 | 只显示匹配结果 |
-| 12 | 无 Dify 关联的文档 | 审核通过后可直接发布 |
+GitHub Actions 会执行同一套测试。
 
 ---
 
-## 14. 在 Dify 控制台查看聊天反馈
+## 12. 常见问题
 
-1. 打开 Dify 对应应用；
-2. 进入「日志」或「日志与标注 → 日志」；
-3. 查看「用户反馈」列；
-4. 点击会话行查看具体消息反馈；
-5. 通过 API 产生的反馈以 `DIFY_USER_ID` 记录。
+### 没有账号 / 登录页提示未初始化
 
-官方文档：[Dify 日志](https://docs.dify.ai/zh/cloud/use-dify/monitor/logs)。
-
----
-
-## 15. 常见问题
-
-### 后台显示 503「管理后台尚未启用」
-
-在 `.env` 中设置：
+设置 `.env`：
 
 ```dotenv
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=你的密码
+INITIAL_ADMIN_PASSWORD=至少8位密码
 ```
 
-保存后重启 Flask。
+重启，或运行：
 
-### 忘记管理员密码
-
-修改 `.env` 中的 `ADMIN_PASSWORD`，重启 Flask。密码无法从页面找回。
-
-### 发布按钮不出现
-
-检查：
-
-- 版本是否已审核通过；
-- 关联 Dify 时，是否已登记同步；
-- 当前版本是否已经发布或归档。
-
-### Dify 文档更新后，聊天仍引用旧内容
-
-- 检查 Dify 索引是否完成；
-- 检查是否更新了正确的数据集/文档 ID；
-- 在 Dify 中执行召回测试；
-- 必要时在 Dify 侧重建索引；
-- 本地发布状态不会自动改变 Dify，二者需要按流程配合。
-
-### 数据库在哪里
-
-默认：
-
-```text
-instance/ops_assistant.sqlite3
+```powershell
+.\.venv\Scripts\python.exe -m flask --app app create-admin
 ```
 
-备份时复制该文件即可；不要提交到 GitHub。
+### 旧版 ADMIN_PASSWORD 还能用吗
 
-### 5000 端口被占用
+如果数据库还没有用户，旧版 `ADMIN_PASSWORD` 会被兼容迁移为初始管理员。旧密码可能少于 8 位，登录后请在「用户管理 → 编辑」重置为强密码。之后建议改用 `INITIAL_ADMIN_*` 并删除旧变量。
 
-修改 `.env`：
+### 管理员不能审核某个版本
+
+如果该版本是你自己提交的，系统会阻止自审。请让另一位管理员审核。
+
+### 运维人员看不到发布按钮
+
+这是设计行为。运维人员只负责同步、索引和 RAG 验证，最终发布必须由管理员完成。
+
+### Dify 索引成功但还不能发布
+
+需要再完成 RAG 验证并登记 `passed`。
+
+### 后台 403
+
+- 普通员工不能访问后台；
+- 运维人员不能访问用户、角色、审计页面；
+- 确认当前账号角色。
+
+### 5000 端口占用
 
 ```dotenv
 PORT=5001
 ```
 
-访问 `http://127.0.0.1:5001`。
-
 ---
 
-## 16. 已知限制与后续版本
+## 13. 已知限制
 
-V1.3 有意保持轻量：
-
-- 单一管理员账号，没有多角色权限；
-- Basic Auth，不是 SSO；
-- Dify 知识库同步是人工确认流程，不自动调用写接口；
+- 聊天页保持公开，管理后台强制登录；
+- 三角色权限矩阵内置，不支持页面自由编辑权限；
+- 没有邮件/企业微信通知；
 - SQLite 适合单机/小团队，不适合高并发多实例；
-- 没有版本内容 diff 视图；
-- 没有文件上传，文档内容通过 Markdown/纯文本粘贴维护；
-- 聊天历史刷新后不保留（原 V1.2 限制仍存在）。
-
-后续方向：
-
-- 对接企业登录和角色权限；
-- 可选的 Dify `update-by-text` 自动同步 + 索引轮询；
-- 版本 diff、附件上传、批量导入；
-- 审批流通知（邮件/企业微信）；
-- PostgreSQL/Redis 和多实例部署。
+- Dify 知识库更新仍为人工确认流程；
+- 没有版本 diff 和文件上传；
+- Session 版本机制会让同账号在修改角色/退出后，其他设备的旧会话同时失效。
 
 ---
 
-## 17. 上传 GitHub
+## 14. GitHub
 
 ```powershell
 git status
 git add .
-git commit -m "feat: add document version management"
+git commit -m "feat: add RBAC for roles and document workflow"
 git push
 ```
 
@@ -710,14 +552,4 @@ git push
 git check-ignore .env instance/ .venv
 ```
 
-应该不会把 `.env`、数据库或虚拟环境加入提交。
-
-如果真实 Key 误提交：
-
-1. 立即在 Dify 撤销/轮换 Key；
-2. 从 Git 历史中移除；
-3. 不要只删除最新文件。
-
----
-
-**版本**：V1.3 · **技术栈**：HTML + CSS + 原生 JavaScript / Python Flask / SQLite / Dify Cloud API / DeepSeek / RAG
+**版本**：V1.4 · Python Flask / SQLite / Dify Cloud / DeepSeek / RAG

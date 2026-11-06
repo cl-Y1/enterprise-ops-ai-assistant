@@ -1,0 +1,80 @@
+{% extends "admin/base.html" %}
+{% block title %}操作日志{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">AUDIT TRAIL</p>
+    <h1>操作日志</h1>
+    <p class="page-description">记录关键操作的操作人、时间、对象和结果。日志不保存密码、Token 或 Dify API Key。</p>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-toolbar">
+    <div>
+      <h2>最近操作</h2>
+      <p>显示最近 {{ logs|length }} 条，最多 500 条。</p>
+    </div>
+    <form class="search-form" action="{{ url_for('admin.audit_logs') }}" method="get" role="search">
+      <label class="sr-only" for="auditSearch">搜索日志</label>
+      <input id="auditSearch" type="search" name="q" value="{{ search }}" placeholder="搜索操作人或对象">
+      <select name="action" aria-label="操作类型">
+        <option value="">全部操作</option>
+        {% for action_key, action_label in audit_action_labels.items() %}
+          <option value="{{ action_key }}" {% if action == action_key %}selected{% endif %}>{{ action_label }}</option>
+        {% endfor %}
+      </select>
+      <button class="button button--secondary" type="submit">筛选</button>
+      {% if search or action %}<a class="text-link" href="{{ url_for('admin.audit_logs') }}">清除</a>{% endif %}
+    </form>
+  </div>
+
+  {% if logs %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">时间</th>
+            <th scope="col">操作人</th>
+            <th scope="col">操作</th>
+            <th scope="col">对象</th>
+            <th scope="col">结果</th>
+            <th scope="col">说明</th>
+            <th scope="col">IP</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+            <tr>
+              <td class="nowrap">{{ log.created_at }}</td>
+              <td>{{ log.actor_username or '匿名' }}</td>
+              <td>{{ audit_action_labels.get(log.action, log.action) }}</td>
+              <td>
+                {% if log.target_type %}<span class="muted">{{ log.target_type }}</span>{% endif %}
+                {% if log.target_id %} <code class="id-code">#{{ log.target_id }}</code>{% endif %}
+                {% if not log.target_type and not log.target_id %}—{% endif %}
+              </td>
+              <td>
+                <span class="status {% if log.result == 'success' %}status--approved{% else %}status--rejected{% endif %}">
+                  {{ '成功' if log.result == 'success' else '失败' }}
+                </span>
+              </td>
+              <td class="reason-cell">{{ log.detail or '—' }}</td>
+              <td class="nowrap muted">{{ log.ip or '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <h3>暂无匹配日志</h3>
+      <p>登录、审核、Dify 同步、RAG 验证、发布和用户管理都会记录在这里。</p>
+    </div>
+  {% endif %}
+</div>
+
+<div class="info-banner">
+  普通员工没有操作日志权限；运维人员只能访问文档和反馈模块；用户、角色和审计日志仅管理员可见。
+</div>
+{% endblock %}

@@ -1,0 +1,351 @@
+/* 登录页专用布局，复用 admin.css 的基础色彩与表单样式。 */
+.login-body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(59, 130, 246, 0.16), transparent 30%),
+    radial-gradient(circle at 100% 100%, rgba(36, 99, 235, 0.1), transparent 35%),
+    linear-gradient(180deg, #f8fbff 0%, #eef4fc 100%);
+}
+
+.login-shell {
+  width: min(1160px, calc(100% - 40px));
+  min-height: calc(100vh - 48px);
+  margin: 24px auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  overflow: hidden;
+  border: 1px solid rgba(213, 225, 242, 0.9);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(26, 60, 120, 0.14);
+}
+
+.login-intro {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 34px 46px 32px;
+  overflow: hidden;
+  color: #fff;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(79, 139, 255, 0.55), transparent 32%),
+    radial-gradient(circle at 0% 100%, rgba(11, 46, 128, 0.7), transparent 45%),
+    linear-gradient(145deg, #1749c5 0%, #123a9f 52%, #0e2f82 100%);
+}
+
+.login-intro::after {
+  content: "";
+  position: absolute;
+  right: -110px;
+  bottom: -140px;
+  width: 360px;
+  height: 360px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  box-shadow: 0 0 0 34px rgba(255, 255, 255, 0.035), 0 0 0 70px rgba(255, 255, 255, 0.025);
+  pointer-events: none;
+}
+
+.login-brand {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 11px;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 12px;
+}
+
+.login-brand:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 4px;
+}
+
+.login-brand__mark {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.login-brand__mark svg {
+  width: 22px;
+  height: 22px;
+}
+
+.login-brand > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.login-brand strong {
+  font-size: 15px;
+}
+
+.login-brand small {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+.login-intro__copy {
+  position: relative;
+  z-index: 1;
+  margin: 68px 0 36px;
+}
+
+.login-intro .eyebrow {
+  color: rgba(172, 203, 255, 0.9);
+}
+
+.login-intro__copy h1 {
+  margin: 0;
+  font-size: clamp(31px, 3.8vw, 47px);
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+}
+
+.login-intro__copy > p:last-child {
+  max-width: 480px;
+  margin: 19px 0 0;
+  color: rgba(225, 237, 255, 0.72);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.login-roles {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-width: 480px;
+}
+
+.login-role {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 11px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.login-role__icon {
+  flex-shrink: 0;
+  color: rgba(185, 211, 255, 0.85);
+  font-family: var(--admin-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.login-role strong {
+  display: block;
+  font-size: 11.5px;
+}
+
+.login-role p {
+  margin: 3px 0 0;
+  color: rgba(225, 237, 255, 0.62);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.login-chat-link {
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+  padding-top: 28px;
+  align-self: flex-start;
+  color: rgba(225, 237, 255, 0.76);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.login-chat-link:hover {
+  color: #fff;
+}
+
+.login-chat-link span {
+  margin-left: 4px;
+  color: #a9c9ff;
+}
+
+.login-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 42px 46px;
+  background: #fff;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 355px;
+  margin: 0 auto;
+}
+
+.login-card__head .eyebrow {
+  margin-bottom: 7px;
+}
+
+.login-card__head h2 {
+  margin: 0;
+  font-size: 27px;
+  letter-spacing: -0.025em;
+}
+
+.login-card__head > p:last-child {
+  margin: 8px 0 0;
+  color: var(--admin-ink-500);
+  font-size: 12px;
+}
+
+.login-card .flash-stack {
+  margin: 18px 0 0;
+}
+
+.login-setup-note {
+  margin: 18px 0 0;
+  padding: 11px 12px;
+  border: 1px solid #f2dfba;
+  border-radius: 8px;
+  color: #7a4a08;
+  background: #fffaeb;
+  font-size: 10.5px;
+  line-height: 1.7;
+}
+
+.login-setup-note code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #fff1cf;
+  font-family: var(--admin-mono);
+  font-size: 9.5px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 28px;
+}
+
+.login-form .field input {
+  height: 43px;
+  border-radius: 9px;
+  background: #fbfcff;
+}
+
+.login-submit {
+  height: 43px;
+  margin-top: 5px;
+  font-size: 13px;
+}
+
+.login-note {
+  margin: 18px 0 0;
+  color: var(--admin-ink-400);
+  font-size: 10px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.login-footer {
+  max-width: 355px;
+  margin: 36px auto 0;
+  color: #a2adbf;
+  font-size: 9.5px;
+  text-align: center;
+}
+
+@media (max-width: 920px) {
+  .login-shell {
+    width: min(620px, calc(100% - 28px));
+    grid-template-columns: 1fr;
+  }
+
+  .login-intro {
+    padding: 26px 30px 24px;
+  }
+
+  .login-intro__copy {
+    margin: 38px 0 26px;
+  }
+
+  .login-roles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-width: none;
+  }
+
+  .login-role {
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px;
+  }
+
+  .login-chat-link {
+    margin-top: 24px;
+    padding-top: 0;
+  }
+
+  .login-panel {
+    padding: 34px 30px 32px;
+  }
+}
+
+@media (max-width: 560px) {
+  .login-shell {
+    width: 100%;
+    min-height: 100vh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .login-intro {
+    padding: 22px 20px 20px;
+  }
+
+  .login-intro__copy {
+    margin: 30px 0 22px;
+  }
+
+  .login-intro__copy h1 {
+    font-size: 29px;
+  }
+
+  .login-intro__copy > p:last-child {
+    font-size: 11.5px;
+  }
+
+  .login-roles {
+    grid-template-columns: 1fr;
+  }
+
+  .login-role {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .login-panel {
+    padding: 28px 20px 32px;
+  }
+
+  .login-card {
+    max-width: none;
+  }
+
+  .login-footer {
+    margin-top: 24px;
+  }
+}

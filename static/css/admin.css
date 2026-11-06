@@ -154,25 +154,87 @@ svg {
 .admin-nav {
   display: flex;
   align-items: center;
-  gap: 18px;
-  font-size: 12.5px;
+  gap: 4px;
+  font-size: 12px;
 }
 
 .admin-nav a {
-  color: var(--admin-ink-700);
+  padding: 7px 10px;
+  border-radius: 7px;
+  color: var(--admin-ink-500);
   text-decoration: none;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .admin-nav a:hover {
   color: var(--admin-blue-700);
+  background: var(--admin-blue-50);
+}
+
+.admin-nav a.is-active {
+  color: var(--admin-blue-700);
+  background: #edf5ff;
+}
+
+.admin-account {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex-shrink: 0;
+}
+
+.admin-chat-link {
+  color: var(--admin-ink-500);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.admin-chat-link:hover {
+  color: var(--admin-blue-700);
 }
 
 .admin-user {
-  padding-left: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 12px;
   border-left: 1px solid var(--admin-line);
-  color: var(--admin-ink-400);
-  font-size: 11.5px;
+  color: var(--admin-ink-500);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.admin-role {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 6px;
+  border: 1px solid #d6e4fb;
+  border-radius: 999px;
+  color: var(--admin-blue-700);
+  background: var(--admin-blue-50);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.admin-logout {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--admin-line-strong);
+  border-radius: 7px;
+  color: var(--admin-ink-500);
+  background: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.admin-logout:hover {
+  color: var(--admin-blue-700);
+  border-color: #b9cdf1;
+  background: var(--admin-blue-50);
 }
 
 .admin-shell {
@@ -425,6 +487,10 @@ textarea:focus-visible {
   margin-bottom: 18px;
 }
 
+.stat-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .stat-card {
   position: relative;
   overflow: hidden;
@@ -536,6 +602,17 @@ textarea:focus-visible {
   font-size: 12px;
 }
 
+.search-form select {
+  height: 36px;
+  padding: 0 26px 0 9px;
+  border: 1px solid var(--admin-line-strong);
+  border-radius: 8px;
+  outline: 0;
+  color: var(--admin-ink-700);
+  background: #fbfcff;
+  font-size: 11px;
+}
+
 .search-form input:focus {
   border-color: #9fc0f7;
   background: #fff;
@@ -639,13 +716,17 @@ textarea:focus-visible {
 
 .status--draft,
 .status--unpublished,
-.status--not_required {
+.status--not_required,
+.status--index-not_required,
+.status--rag-not_required {
   color: var(--admin-slate);
   border-color: #e2e7ef;
   background: var(--admin-slate-soft);
 }
 
-.status--pending {
+.status--pending,
+.status--index-pending,
+.status--rag-pending {
   color: var(--admin-amber);
   border-color: #f2dfba;
   background: var(--admin-amber-soft);
@@ -653,13 +734,17 @@ textarea:focus-visible {
 
 .status--approved,
 .status--published,
-.status--synced {
+.status--synced,
+.status--index-success,
+.status--rag-passed {
   color: var(--admin-green);
   border-color: #ccebd9;
   background: var(--admin-green-soft);
 }
 
-.status--rejected {
+.status--rejected,
+.status--index-failed,
+.status--rag-failed {
   color: var(--admin-red);
   border-color: #f3d3d0;
   background: var(--admin-red-soft);
@@ -669,6 +754,24 @@ textarea:focus-visible {
   color: #475467;
   border-color: #d6dce5;
   background: #edf0f4;
+}
+
+.status--role-employee {
+  color: #475467;
+  border-color: #d6dce5;
+  background: #edf0f4;
+}
+
+.status--role-operator {
+  color: var(--admin-blue-700);
+  border-color: #d6e4fb;
+  background: var(--admin-blue-50);
+}
+
+.status--role-admin {
+  color: #7a4a08;
+  border-color: #f2dfba;
+  background: var(--admin-amber-soft);
 }
 
 .version-chip {
@@ -791,7 +894,8 @@ textarea:focus-visible {
 }
 
 .field input,
-.field textarea {
+.field textarea,
+.field select {
   width: 100%;
   padding: 9px 11px;
   border: 1px solid var(--admin-line-strong);
@@ -804,6 +908,12 @@ textarea:focus-visible {
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
+.field select {
+  height: 38px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .field input {
   height: 38px;
 }
@@ -814,7 +924,8 @@ textarea:focus-visible {
 }
 
 .field input:focus,
-.field textarea:focus {
+.field textarea:focus,
+.field select:focus {
   border-color: #9fc0f7;
   background: #fff;
   box-shadow: 0 0 0 4px rgba(36, 99, 235, 0.07);
@@ -1039,6 +1150,11 @@ textarea:focus-visible {
   font-weight: 700;
 }
 
+.rag-chat-link {
+  display: inline-block;
+  margin: 0 18px 10px;
+}
+
 .action-panel {
   padding-bottom: 18px;
 }
@@ -1166,6 +1282,138 @@ textarea:focus-visible {
   overflow-wrap: anywhere;
 }
 
+/* 用户、角色与审计 */
+.checkbox-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-ink-700);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.checkbox-field input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--admin-blue-600);
+}
+
+.role-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.role-card {
+  padding: 17px 18px;
+  border: 1px solid var(--admin-line);
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: var(--admin-shadow-sm);
+}
+
+.role-card--operator {
+  border-top: 3px solid #6ea3ff;
+}
+
+.role-card--admin {
+  border-top: 3px solid #e4a52d;
+}
+
+.role-card--employee {
+  border-top: 3px solid #aeb8c8;
+}
+
+.role-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.role-card__head strong {
+  color: var(--admin-ink-400);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.role-card p {
+  margin: 10px 0;
+  color: var(--admin-ink-500);
+  font-size: 10.5px;
+  line-height: 1.65;
+}
+
+.role-card__code {
+  color: var(--admin-ink-400);
+  font-family: var(--admin-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+}
+
+.permission-table th.center,
+.permission-table td.center {
+  text-align: center;
+}
+
+.permission-group-row td {
+  padding-top: 9px;
+  padding-bottom: 7px;
+  color: var(--admin-blue-700);
+  background: #f4f8ff;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.permission-code {
+  margin-left: 5px;
+  color: var(--admin-ink-400);
+  font-family: var(--admin-mono);
+  font-size: 9px;
+}
+
+.permission-yes {
+  display: inline-grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  color: var(--admin-green);
+  background: var(--admin-green-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.permission-no {
+  color: #b7c1d0;
+  font-size: 12px;
+}
+
+.id-code {
+  color: var(--admin-ink-500);
+  font-family: var(--admin-mono);
+  font-size: 9.5px;
+  overflow-wrap: anywhere;
+}
+
+.status-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.sync-divider {
+  height: 1px;
+  margin: 10px 18px;
+  background: var(--admin-line);
+}
+
+.rag-result {
+  margin-bottom: 4px;
+}
+
 /* 访问错误页 */
 .access-card {
   max-width: 520px;
@@ -1208,6 +1456,25 @@ textarea:focus-visible {
   justify-content: center;
 }
 
+@media (max-width: 1180px) {
+  .admin-topbar__inner {
+    flex-wrap: wrap;
+    padding: 10px 0;
+    gap: 10px 16px;
+  }
+
+  .admin-nav {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .admin-account {
+    margin-left: auto;
+  }
+}
+
 @media (max-width: 1040px) {
   .detail-grid {
     grid-template-columns: minmax(0, 1fr) 320px;
@@ -1236,6 +1503,15 @@ textarea:focus-visible {
 
   .stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat-grid--three,
+  .role-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-user {
+    display: none;
   }
 }
 
@@ -1279,6 +1555,10 @@ textarea:focus-visible {
 
   .stat-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .stat-grid--three {
+    grid-template-columns: 1fr;
   }
 
   .summary-strip {

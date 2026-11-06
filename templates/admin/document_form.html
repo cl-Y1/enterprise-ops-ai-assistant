@@ -100,7 +100,7 @@
           <textarea class="content-editor" name="content" rows="16" maxlength="{{ config.MAX_DOCUMENT_CONTENT }}" required placeholder="粘贴或编写文档内容……">{{ form.content }}</textarea>
           <span class="field-hint">上限 {{ config.MAX_DOCUMENT_CONTENT }} 字符。保存后可在版本详情中下载为 .md 文件。</span>
         </label>
-        <div class="field-help">更新人将记录为当前管理员：{{ admin_username }}。</div>
+        <div class="field-help">更新人将记录为当前账号：{{ current_user.username }}。</div>
       </div>
     </section>
   {% endif %}

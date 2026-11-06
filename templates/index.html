@@ -34,6 +34,21 @@
           </svg>
           新对话
         </button>
+        <div class="account-nav">
+          {% if current_user %}
+            <span class="account-role">{{ role_labels.get(current_user.role, current_user.role) }}</span>
+            <span class="account-name">{{ current_user.display_name }}</span>
+            {% if can_view_admin %}
+              <a class="account-admin-link" href="{{ url_for('admin.documents') }}">管理后台</a>
+            {% endif %}
+            <form method="post" action="{{ url_for('auth.logout') }}" class="logout-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="account-logout" type="submit">退出</button>
+            </form>
+          {% else %}
+            <a class="account-login" href="{{ url_for('auth.login', next=request.path) }}">登录</a>
+          {% endif %}
+        </div>
       </div>
     </header>
 
@@ -141,11 +156,13 @@
     </main>
 
     <footer class="page-footer">
-      <span>企业智能运维知识助手 · V1.3</span>
+      <span>企业智能运维知识助手 · V1.4</span>
       <span class="footer-divider" aria-hidden="true"></span>
       <span>由 Dify Chatflow + DeepSeek + RAG 驱动</span>
-      <span class="footer-divider" aria-hidden="true"></span>
-      <a class="footer-link" href="{{ url_for('admin.documents') }}">文档版本管理</a>
+      {% if can_view_admin %}
+        <span class="footer-divider" aria-hidden="true"></span>
+        <a class="footer-link" href="{{ url_for('admin.documents') }}">文档版本管理</a>
+      {% endif %}
     </footer>
   </div>
 
