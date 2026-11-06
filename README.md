@@ -1,83 +1,92 @@
-# 企业智能运维知识助手 V1.2
+# 企业智能运维知识助手 V1.3
 
-> 基于 **Dify Chatflow + DeepSeek + RAG** 的轻量企业运维知识问答页面，支持多轮对话、点赞/点踩、点踩原因与文字反馈。
+> 基于 **Dify Chatflow + DeepSeek + RAG** 的企业运维知识问答页面，支持多轮对话、点赞/点踩、反馈原因，以及带审核、发布、归档和 Dify 同步衔接的文档版本管理。
 >
 > GitHub 仓库：<https://github.com/cl-Y1/enterprise-ops-ai-assistant><br>
 > [![tests](https://github.com/cl-Y1/enterprise-ops-ai-assistant/actions/workflows/tests.yml/badge.svg)](https://github.com/cl-Y1/enterprise-ops-ai-assistant/actions/workflows/tests.yml)
 
-本项目不重新开发 RAG，也不修改原有 Chatflow 的核心逻辑。V1.2 在现有 Dify 应用之上增加一个独立的 Flask Web 页面，把聊天和反馈请求统一放在后端转发，Dify API Key 不进入浏览器。
+本项目不重新开发 RAG，也不修改原有 Chatflow 的核心逻辑。V1.3 在现有 Dify 应用之上提供两个模块：
+
+1. **智能问答**：Flask 后端代理 Dify Chatflow，支持多轮对话和消息反馈；
+2. **文档版本管理**：SQLite 保存文档、版本、审核、发布、Dify 同步登记和操作审计。
+
+聊天与反馈仍使用 Dify 原生记录；文档治理数据保存在本地 SQLite，二者互不破坏。
 
 ---
 
-## 1. 项目目标
+## 1. 功能清单
 
-帮助普通员工查询运维知识，帮助运维人员检索故障排查方案，并把“回答是否有用”的反馈沉淀到 Dify 原生日志中。
+### 智能问答
 
-V1.2 实现：
+- 调用 Dify `POST /v1/chat-messages`，阻塞模式获取回答；
+- 正确保存并传递 `conversation_id`，支持连续多轮；
+- 每条 AI 回答关联独立 `message_id`；
+- 点赞、点踩按钮；
+- 点踩选择六种原因，并可填写补充说明；
+- 反馈提交到 Dify 原生消息反馈 API；
+- 前后端双重防止重复反馈；
+- 超时、断网、401、404、429、空回答均有脱敏中文提示。
 
-- 用户输入问题，调用 Dify Chatflow API；
-- 展示 AI 回答，支持连续多轮对话；
-- 每条 AI 回答下方有点赞、点踩按钮；
-- 点踩后选择原因，并可填写补充说明；
-- 反馈提交到 Dify 消息反馈 API；
-- 成功、失败、超时、空回答都有中文提示；
-- 不引入额外数据库，反馈直接记录在 Dify。
+### 文档版本管理
 
----
-
-## 2. 功能清单
-
-| 功能 | 实现方式 |
-| --- | --- |
-| 多轮对话 | 前端保存后端返回的 `conversation_id`，下一轮原样传回 |
-| 展示回答 | 调用 `POST /v1/chat-messages`，`response_mode=blocking` |
-| 单条消息反馈 | 每条 AI 消息单独保存 `message_id` |
-| 点赞 | 调用 `POST /v1/messages/{message_id}/feedbacks`，`rating=like` |
-| 点踩 | 弹窗选择原因，提交 `rating=dislike` 和 `content` |
-| 防止重复反馈 | 前端锁定按钮 + 后端进程内登记表双重校验 |
-| 密钥保护 | API Key 只在 Flask 后端环境变量中读取 |
-| 异常处理 | 超时、断网、401、404、429、空回答均返回脱敏中文提示 |
-| 数据存储 | 第一版使用 Dify 原生消息反馈记录，不引入数据库 |
+- 文档基础信息：标题、分类、负责人、说明、Dify 数据集/文档 ID；
+- 自动版本号：`v1`、`v2`……；
+- 每个版本记录：更新原因、更新人、内容快照、SHA-256；
+- 审核状态：草稿、待审核、审核通过、已驳回；
+- 发布状态：未发布、已发布、已归档；
+- 审核通过后，若关联 Dify，必须先登记同步才能发布；
+- 发布新版本时，旧发布版本自动归档，历史内容永久保留；
+- 历史版本下载为 `.md`；
+- 操作审计：创建、提交审核、审核、Dify 同步、发布、自动归档；
+- 简洁管理后台，Basic Auth + CSRF 防护；
+- 详细 Dify 衔接流程见 [docs/dify-sync-workflow.md](docs/dify-sync-workflow.md)。
 
 ---
 
-## 3. 系统架构
+## 2. 系统架构
 
 ```text
-┌──────────────────────────────┐
-│ Windows 浏览器                │
-│ HTML + CSS + 原生 JavaScript │
-│ - 聊天界面                    │
-│ - 点赞/点踩弹窗               │
-│ - 不接触 Dify API Key         │
-└──────────────┬───────────────┘
-               │ 同源 HTTP / JSON
-               ▼
-┌──────────────────────────────┐
-│ Flask 后端 app.py             │
-│ - 输入校验                    │
-│ - 隐藏 API Key                │
-│ - 调用 Dify App API           │
-│ - 统一异常与错误脱敏           │
-│ - 防重复反馈登记               │
-└──────────────┬───────────────┘
+┌──────────────────────────────┐        ┌──────────────────────────────┐
+│ 聊天页面                     │        │ 文档版本管理后台              │
+│ HTML + CSS + 原生 JavaScript │        │ /admin/documents              │
+│ 点赞 / 点踩 / 反馈弹窗       │        │ 审核 / 发布 / 归档 / 下载     │
+└──────────────┬───────────────┘        └──────────────┬───────────────┘
+               │ 同源 HTTP / JSON                      │ Basic Auth + CSRF
+               ▼                                       ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ Flask app.py / admin.py                                             │
+│ - 聊天与反馈代理                                                    │
+│ - 文档版本状态机                                                    │
+│ - 输入校验、错误脱敏                                                │
+│ - SQLite 文档/版本/审计数据                                         │
+└──────────────┬──────────────────────────────────────────────────────┘
                │ Authorization: Bearer {DIFY_API_KEY}
                ▼
-┌──────────────────────────────┐
-│ Dify Cloud Chatflow           │
-│ - RAG 知识库检索              │
-│ - DeepSeek 生成回答           │
-│ - 原生消息反馈记录             │
+┌──────────────────────────────┐        ┌──────────────────────────────┐
+│ Dify Cloud Chatflow           │        │ 本地 SQLite                  │
+│ - RAG 知识库检索              │        │ instance/ops_assistant.db    │
+│ - DeepSeek 生成回答           │        │ 文档 / 版本 / 状态 / 审计    │
+│ - 原生消息反馈记录             │        └──────────────────────────────┘
+└──────────────────────────────┘
+               ▲
+               │ 人工确认同步：下载 Markdown → Dify 替换 → 索引完成 → 后台登记 → 发布
+               │
+┌──────────────┴───────────────┐
+│ 管理员 / 知识库负责人          │
 └──────────────────────────────┘
 ```
 
-请求链路：
+Dify 知识库写入是**人工确认流程**，V1.3 不会自动覆盖生产知识库。原因和后续自动同步扩展点见 [Dify 衔接流程](docs/dify-sync-workflow.md)。
 
-1. 浏览器 `POST /api/chat` → Flask；
-2. Flask 带上服务端 API Key，请求 Dify `/v1/chat-messages`；
-3. Dify 执行原有 Chatflow、检索知识库、调用 DeepSeek；
-4. Flask 只把 `answer`、`conversation_id`、`message_id` 返回浏览器；
-5. 用户点赞/点踩 → Flask `/api/feedback` → Dify 消息反馈 API。
+---
+
+## 3. 技术栈
+
+- 前端：HTML + CSS + 原生 JavaScript
+- 后端：Python 3.12 + Flask
+- 数据库：SQLite（Python 标准库，不额外安装）
+- AI 服务：Dify Cloud Chatflow + DeepSeek + RAG
+- 测试：Python `unittest`，GitHub Actions
 
 ---
 
@@ -85,25 +94,46 @@ V1.2 实现：
 
 ```text
 enterprise-ops-ai-assistant/
-├── app.py                  # Flask 后端：聊天、反馈、校验、异常处理
-├── requirements.txt        # Python 依赖
-├── .env.example            # 环境变量示例，不含真实密钥
-├── .gitignore              # 排除 .env、虚拟环境、缓存
+├── app.py                         # Flask 工厂、聊天、反馈、健康检查
+├── admin.py                       # 文档管理后台路由、认证、CSRF
+├── documents.py                   # SQLite 数据层、版本状态机、审计
+├── requirements.txt
+├── .env.example
+├── .gitignore
 ├── README.md
 │
 ├── templates/
-│   └── index.html          # 聊天页面与反馈弹窗
+│   ├── index.html                 # 聊天页面
+│   └── admin/
+│       ├── base.html
+│       ├── documents.html         # 文档列表
+│       ├── document_form.html     # 新建/编辑文档
+│       ├── version_form.html      # 新增版本
+│       ├── document_detail.html   # 版本详情、审核、发布、Dify 同步
+│       └── error.html
 │
 ├── static/
 │   ├── css/
-│   │   └── style.css       # 浅色蓝色主题、消息与弹窗样式
+│   │   ├── style.css              # 聊天页样式
+│   │   └── admin.css              # 管理后台样式
 │   └── js/
-│       └── app.js          # 聊天交互、反馈提交、前端校验
+│       ├── app.js                 # 聊天/反馈交互
+│       └── admin.js               # 复制、发布确认
 │
-└── tests/
-    ├── __init__.py
-    └── test_app.py         # 22 项自动化测试（模拟 Dify 响应）
+├── tests/
+│   ├── __init__.py
+│   ├── test_app.py                # 22 项聊天/反馈测试
+│   └── test_documents.py          # 14 项文档模块测试
+│
+├── docs/
+│   └── dify-sync-workflow.md      # Dify 知识库更新作业指导书
+│
+└── .github/
+    └── workflows/
+        └── tests.yml              # GitHub Actions 单元测试
 ```
+
+`instance/` 数据库、`.env`、`.venv` 和本地截图都会被 `.gitignore` 排除。
 
 ---
 
@@ -112,135 +142,278 @@ enterprise-ops-ai-assistant/
 已在以下环境验证：
 
 - Windows 11
-- Python **3.12.6**
+- Python 3.12.6
 - Flask 3.1.3
 - requests 2.34.2
 - python-dotenv 1.2.4
 - 可访问 `https://api.dify.ai`
-- 已完成并发布一个 Dify Chatflow，且已开启 API 访问
+- 已发布 Dify Chatflow，并开启应用 API 访问
 
-Python 3.10 及以上均可尝试使用。
+Python 3.10 及以上可尝试使用。
 
 ---
 
 ## 6. 快速开始（Windows PowerShell）
 
-### 6.1 进入项目目录
+### 6.1 进入项目并创建虚拟环境
 
 ```powershell
 cd "D:\你的路径\enterprise-ops-ai-assistant"
-```
-
-### 6.2 创建并激活虚拟环境
-
-```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-如果 PowerShell 提示“禁止运行脚本”，只对当前窗口临时放行：
+如果 PowerShell 禁止运行脚本：
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\Activate.ps1
 ```
 
-### 6.3 安装依赖
+### 6.2 安装依赖
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-如果 `python` 命令不可用，可改用 Windows 的 Python 启动器：
-
-```powershell
-py -3.12 -m venv .venv
-```
-
-### 6.4 配置环境变量
+### 6.3 配置环境变量
 
 ```powershell
 Copy-Item .env.example .env
 notepad .env
 ```
 
-在 `.env` 中填入你的 **Dify 应用 API Key**：
+最少需要填写：
 
 ```dotenv
-DIFY_API_KEY=app-你的真实应用Key
-DIFY_API_BASE_URL=https://api.dify.ai/v1
-DIFY_USER_ID=demo-user-001
-DIFY_TIMEOUT=60
-HOST=127.0.0.1
-PORT=5000
-FLASK_DEBUG=0
+DIFY_API_KEY=app-你的Dify应用Key
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=设置一个足够强的管理员密码
 ```
 
-获取方式：
+建议同时设置固定的会话密钥：
 
-1. 打开 Dify 中已发布的应用；
-2. 进入「访问 API」或「API 访问」页面；
-3. 创建一个 **应用 API Key**（通常以 `app-` 开头）；
-4. 不要使用知识库 API Key，两者用途不同。
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
 
-> `.env` 已被 `.gitignore` 忽略。不要把真实 Key 写入 HTML、JavaScript、README 或截图。
+把输出填入：
 
-### 6.5 启动
+```dotenv
+SECRET_KEY=上一步生成的随机字符串
+```
+
+说明：
+
+- `DIFY_API_KEY` 是聊天应用 API Key，不要填知识库 API Key；
+- `ADMIN_PASSWORD` 留空时管理后台会返回 503，不会暴露默认密码；
+- `SECRET_KEY` 留空会每次启动随机生成，重启后管理员会话需重新建立；
+- `.env` 已被 `.gitignore` 忽略，严禁提交。
+
+### 6.4 启动
 
 ```powershell
 python app.py
 ```
 
-看到以下地址后，在浏览器打开：
+访问：
 
 ```text
-http://127.0.0.1:5000
+聊天页面：http://127.0.0.1:5000/
+文档管理：http://127.0.0.1:5000/admin/documents
 ```
 
-页面右上角会显示：
+管理后台会弹出浏览器 Basic Auth 登录框，输入 `ADMIN_USERNAME` / `ADMIN_PASSWORD`。
 
-- **服务已配置**：后端读到了 `DIFY_API_KEY`（只表示已配置，不校验 Key 是否有效）；
-- **待配置 API Key**：`.env` 未配置或 Key 为空；
-- **服务状态未知**：Flask 服务不可达。
+首次启动会自动创建：
+
+```text
+instance/ops_assistant.sqlite3
+```
+
+不需要手动建库。
 
 ---
 
-## 7. Dify 端需要检查什么
+## 7. 环境变量
 
-本项目 **不修改原有 Chatflow、不修改知识库、不重新开发 RAG**。只需要确认：
+| 变量 | 必填 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `DIFY_API_KEY` | 是 | 空 | Dify 应用 API Key，只放后端 |
+| `DIFY_API_BASE_URL` | 否 | `https://api.dify.ai/v1` | Dify API 地址 |
+| `DIFY_USER_ID` | 否 | `demo-user-001` | 聊天与反馈的终端用户标识 |
+| `DIFY_TIMEOUT` | 否 | `60` | Dify 请求读取超时（秒） |
+| `ADMIN_USERNAME` | 否 | `admin` | 文档后台用户名 |
+| `ADMIN_PASSWORD` | 是 | 空 | 文档后台密码；为空则后台禁用 |
+| `SECRET_KEY` | 建议 | 随机生成 | Flask 会话签名密钥 |
+| `DATABASE_PATH` | 否 | `instance/ops_assistant.sqlite3` | SQLite 文件位置 |
+| `MAX_DOCUMENT_CONTENT` | 否 | `200000` | 单篇文档内容上限 |
+| `HOST` | 否 | `127.0.0.1` | 本地监听地址 |
+| `PORT` | 否 | `5000` | 本地端口 |
+| `FLASK_DEBUG` | 否 | `0` | 生产/演示保持 0 |
 
-1. Chatflow 已发布，不要使用草稿版本；
+---
+
+## 8. Dify 端需要检查什么
+
+本项目不修改原有 Chatflow、知识库和 RAG。只需要确认：
+
+1. Chatflow 已发布，未使用草稿版本；
 2. 应用已开启 API 访问；
-3. `.env` 中的 Key 与这个应用匹配；
-4. `DIFY_USER_ID` 在聊天与反馈请求中保持一致（后端已自动保证）；
-5. Dify 应用的输入表单没有必填变量。本项目发送 `inputs: {}`，如果你的 Chatflow 新增了必填输入变量，需要同步扩展前端。
+3. `DIFY_API_KEY` 与应用匹配；
+4. `DIFY_USER_ID` 在聊天和反馈中保持一致（后端自动保证）；
+5. Chatflow 没有新增必填输入变量，本项目发送 `inputs: {}`；
+6. 文档版本管理中的 Dify 数据集 ID、文档 ID 与 Dify 控制台一致。
 
-官方文档：
+### 8.1 Dify 数据集/文档 ID 在哪里
 
-- [发送对话消息](https://docs.dify.ai/zh/api-reference/chat-messages/send-chat-message)
-- [提交消息反馈](https://docs.dify.ai/zh/api-reference/feedback/submit-message-feedback)
-- [查看日志](https://docs.dify.ai/zh/cloud/use-dify/monitor/logs)
+- **数据集 ID**：打开 Dify 知识库，从页面 URL 的 `/datasets/` 后复制；
+- **文档 ID**：在知识库文档详情或文档列表中获取。
+
+V1.3 不自动调用知识库写接口。正式自动同步需要额外的知识库 API Key，接入方式见 [Dify 衔接流程](docs/dify-sync-workflow.md)。
 
 ---
 
-## 8. 后端接口说明
+## 9. 文档版本管理后台
 
-### 8.1 `GET /api/health`
+### 9.1 入口与认证
 
-仅检查后端是否已读取到 Key，不验证 Key 是否有效，也不会返回 Key。
+访问：
+
+```text
+http://127.0.0.1:5000/admin/documents
+```
+
+认证方式：HTTP Basic Auth。
+
+- 未配置 `ADMIN_PASSWORD`：返回 503，后台禁用；
+- 用户名或密码错误：返回 401；
+- 所有写操作都有 CSRF token 校验；
+- 管理页面不显示密码、API Key 或数据库路径。
+
+> Basic Auth 在本地演示足够；如果部署到公网，必须使用 HTTPS。
+
+### 9.2 创建文档
+
+进入「新建文档」，填写：
+
+- 文档标题；
+- 分类、负责人、说明；
+- 可选：Dify 数据集 ID + 文档 ID（必须成对填写）；
+- 初始版本 v1 的更新原因和内容。
+
+创建后初始版本为「草稿 / 未发布」。
+
+### 9.3 版本与审核流程
+
+```text
+草稿 draft
+  │ 提交审核
+  ▼
+待审核 pending
+  ├── 审核通过 → approved
+  └── 审核驳回 → rejected → 修改后重新提交
+```
+
+审核通过后才允许进入发布阶段。审核意见、审核人和审核时间会记录在版本中。
+
+### 9.4 发布与历史归档
+
+```text
+未发布 unpublished
+  │ 发布
+  ▼
+已发布 published
+  │ 新版本发布
+  ▼
+已归档 archived
+```
+
+发布条件：
+
+- 审核状态必须是「审核通过」；
+- 如果文档关联了 Dify，`dify_sync_status` 必须是「已登记同步」；
+- 未关联 Dify 的文档审核通过后可以直接发布。
+
+新版本发布时：
+
+- 当前版本变为 `published`；
+- 之前的 `published` 版本自动变为 `archived`；
+- 所有版本内容继续保留，可下载追溯；
+- 写入操作记录。
+
+### 9.5 历史版本下载
+
+在版本内容区点击「下载 .md」，文件名类似：
+
+```text
+CBS-与-TDH-数据一致性排查手册-v2.md
+```
+
+可用于 Dify 知识库替换或本地归档。
+
+### 9.6 Dify 同步衔接
+
+完整作业指导书：[docs/dify-sync-workflow.md](docs/dify-sync-workflow.md)
+
+简要流程：
+
+1. 新增版本并提交审核；
+2. 审核通过；
+3. 下载/复制 Markdown；
+4. 在 Dify 知识库替换对应文档；
+5. 等待 Dify 重新分段和索引完成；
+6. 回后台填写同步说明，点击「确认已同步」；
+7. 点击「发布此版本」；
+8. 旧版本自动归档；
+9. 在聊天页面验证 RAG 回答。
+
+同步说明示例：
+
+```text
+2026-11-06 17:00 在 Dify 替换文档，索引状态 completed；操作人：admin
+```
+
+### 9.7 状态速查
+
+| 审核状态 | 中文 |
+| --- | --- |
+| `draft` | 草稿 |
+| `pending` | 待审核 |
+| `approved` | 审核通过 |
+| `rejected` | 已驳回 |
+
+| 发布状态 | 中文 |
+| --- | --- |
+| `unpublished` | 未发布 |
+| `published` | 已发布 |
+| `archived` | 已归档 |
+
+| Dify 同步状态 | 中文 |
+| --- | --- |
+| `pending` | 待同步 |
+| `synced` | 已登记同步 |
+| `not_required` | 无需同步 |
+
+---
+
+## 10. 聊天与反馈 API
+
+### 10.1 `GET /api/health`
+
+只检查后端是否读取到配置，不验证 Key 有效性，不返回密钥。
 
 ```json
 {
   "ok": true,
   "configured": true,
   "service": "企业智能运维知识助手",
-  "version": "1.2"
+  "version": "1.3",
+  "document_management": true
 }
 ```
 
-### 8.2 `POST /api/chat`
-
-请求：
+### 10.2 `POST /api/chat`
 
 ```json
 {
@@ -249,9 +422,7 @@ http://127.0.0.1:5000
 }
 ```
 
-首次对话传空字符串；后续把上一轮返回的 `conversation_id` 传回。
-
-成功响应：
+成功：
 
 ```json
 {
@@ -262,7 +433,7 @@ http://127.0.0.1:5000
 }
 ```
 
-后端实际发往 Dify 的请求：
+后端发往 Dify：
 
 ```json
 {
@@ -270,24 +441,11 @@ http://127.0.0.1:5000
   "query": "用户问题",
   "response_mode": "blocking",
   "user": "demo-user-001",
-  "conversation_id": "上一轮返回的会话 ID，第一轮省略"
+  "conversation_id": "上一轮会话 ID，首轮省略"
 }
 ```
 
-错误状态：
-
-| HTTP | 场景 | 页面提示 |
-| --- | --- | --- |
-| 400 | 空问题、超长问题、非法会话 ID | 具体校验提示 |
-| 409 | `conversation_id` 失效 | 点击「新对话」后重试 |
-| 429 | Dify 限流 | 当前咨询人数较多 |
-| 502 | Dify 不可达、空回答、返回字段不完整 | 通用提示 |
-| 503 | 未配置 Key、Key 无效 | 联系管理员检查服务端配置 |
-| 504 | 请求超时 | 稍后重试 |
-
-错误响应不会包含 Dify 原始报错、API Key、内部地址或堆栈。
-
-### 8.3 `POST /api/feedback`
+### 10.3 `POST /api/feedback`
 
 点赞：
 
@@ -309,222 +467,199 @@ http://127.0.0.1:5000
 }
 ```
 
-后端会组合为 Dify 的 `content`：
+服务端组合后发往 Dify：
 
 ```text
 反馈原因：答案不准确；补充说明：缺少 Service 日志检查步骤
 ```
 
-实际发往 Dify 的请求：
+同一条 `message_id` 只允许成功提交一次，前端按钮锁定，后端登记表再次拦截。
 
-```json
-{
-  "rating": "dislike",
-  "user": "demo-user-001",
-  "content": "反馈原因：答案不准确；补充说明：缺少 Service 日志检查步骤"
-}
-```
+### 10.4 管理后台路由
 
-成功响应：
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/admin/documents` | 文档列表、搜索、统计 |
+| GET/POST | `/admin/documents/new` | 新建文档和初始版本 |
+| GET | `/admin/documents/<id>` | 文档详情、版本、审核、发布 |
+| GET/POST | `/admin/documents/<id>/edit` | 编辑文档元信息 |
+| GET/POST | `/admin/documents/<id>/versions/new` | 新增版本 |
+| POST | `/admin/versions/<id>/submit` | 提交审核 |
+| POST | `/admin/versions/<id>/review` | 审核通过/驳回 |
+| POST | `/admin/versions/<id>/sync` | 登记 Dify 同步 |
+| POST | `/admin/versions/<id>/publish` | 发布版本并归档旧版本 |
+| GET | `/admin/versions/<id>/download` | 下载版本 Markdown |
 
-```json
-{
-  "ok": true,
-  "rating": "like",
-  "message": "感谢你的认可！"
-}
-```
-
-点踩成功提示：
-
-```text
-感谢反馈，我们将持续优化知识助手。
-```
-
-反馈原因限定为：
-
-- 答案不准确
-- 回答内容不完整
-- 操作步骤已经过时
-- 没有解决我的问题
-- 知识库没有相关内容
-- 其他
-
-同一条 `message_id` 只允许成功提交一次。前端会锁定两个按钮，后端也会拦截重复请求。
+所有 POST 都需要 CSRF token 和 Basic Auth。
 
 ---
 
-## 9. 如何在 Dify 控制台查看反馈记录
+## 11. 数据模型
 
-1. 打开 Dify，进入对应应用；
-2. 打开左侧的 **「日志」** 或 **「日志与标注」→「日志」**；
-3. 查看日志列表中的 **「用户反馈」** 列，它会汇总该会话的点赞/点踩；
-4. 点击对应会话行，打开完整消息记录；
-5. 在具体 AI 回答上查看反馈状态、点踩评论和该次运行的追踪信息。
+SQLite 三张表：
 
-通过 API 产生的聊天也会出现在日志中。用户列显示的是本项目 `.env` 中配置的 `DIFY_USER_ID`（默认 `demo-user-001`），不是浏览器登录账号。
+### `documents`
 
-> Dify Cloud 不同版本的菜单名称可能略有差异，但入口都在应用内的日志页面。官方说明：[日志](https://docs.dify.ai/zh/cloud/use-dify/monitor/logs)。
+文档元信息、Dify 数据集/文档 ID、当前发布版本 ID。
 
-如果日志中能看到问答，但看不到反馈：
+### `document_versions`
 
-- 确认点赞/点踩请求返回了成功提示；
-- 确认查看的是同一个 Dify 应用；
-- 确认 `DIFY_USER_ID` 没有在聊天与反馈之间变化；
-- 刷新日志页面；
-- 检查后端控制台是否有 `Dify feedback failed` 日志。
+每个版本的：
+
+- 版本号、更新原因、更新人；
+- 内容、内容 SHA-256；
+- 审核状态、审核人、审核意见、审核时间；
+- 发布状态、发布时间；
+- Dify 同步状态、同步说明、同步登记人/时间。
+
+### `version_events`
+
+不可变操作记录：创建、提交审核、审核通过/驳回、Dify 同步、发布、自动归档。
 
 ---
 
-## 10. 安全设计
+## 12. 安全设计
 
 | 要求 | 实现 |
 | --- | --- |
-| API Key 只在后端 | `app.py` 从 `.env` / 环境变量读取，前端只请求 Flask |
-| 不写入 HTML/JS | 页面与 `app.js` 中没有任何 Key；自动化测试会检查 |
-| 不上传 `.env` | `.gitignore` 排除 `.env`，保留空白的 `.env.example` |
-| 输入校验 | 问题 ≤ 2000 字，补充说明 ≤ 300 字，UUID、rating、reason 白名单校验 |
-| 异常脱敏 | 原始 Dify 错误只写服务端日志，浏览器只收到中文通用提示 |
-| 模拟数据 | 示例问题均为运维练习场景，不含公司真实 IP、账号、密码 |
-| 本地访问 | 默认 `127.0.0.1:5000`，不对公网开放 |
-| 浏览器防护 | CSP、`X-Content-Type-Options`、`X-Frame-Options`、API `no-store` |
+| Dify API Key 只在后端 | 环境变量读取，前端只请求 Flask |
+| 管理员密码 | `ADMIN_PASSWORD`，留空则后台禁用 |
+| 写操作防护 | Basic Auth + Session CSRF token |
+| Cookie | `HttpOnly` + `SameSite=Lax` |
+| 输入校验 | 标题、内容长度、Dify ID 格式、版本状态转换 |
+| 错误脱敏 | Dify 原始错误只写服务端日志 |
+| 数据库 | `instance/*.sqlite3` 被 Git 忽略 |
+| 浏览器防护 | CSP、`X-Frame-Options`、API/后台 `no-store` |
+| 本地访问 | 默认绑定 `127.0.0.1` |
 
-补充说明：
+补充：
 
-- 当前 `DIFY_USER_ID` 是演示用固定用户。接入企业登录后，应改为从登录态派生用户 ID，并确保聊天与反馈始终一致；
-- 防重复反馈登记表保存在 Flask 进程内存中，重启后清空；多进程部署时应改为 Redis 或数据库；
-- 本项目没有实现用户系统、权限系统、审计后台和反馈管理后台，属于 V1.2 轻量版本范围。
+- Basic Auth 不是企业级 SSO。正式环境建议接入公司登录、角色权限和 HTTPS；
+- 单一管理员账号无法实现职责分离，V1.3 仅用于轻量实践；
+- 归档版本不可重新发布，回滚应创建新版本，保持历史链路。
 
 ---
 
-## 11. 测试记录
+## 13. 测试记录
 
-### 11.1 自动化测试
-
-在项目根目录运行：
+### 13.1 自动化测试
 
 ```powershell
 python -m unittest discover -s tests -v
 ```
 
-本次开发环境结果：
-
-```text
-Ran 22 tests
-OK
-```
-
-覆盖范围：
-
-- Dify Chatflow 请求地址、Header、请求体契约；
-- 首次对话省略 `conversation_id`；
-- 第二轮对话正确复用 `conversation_id`；
-- 点赞请求契约与成功文案；
-- 点踩原因 + 补充说明拼接；
-- 无补充说明时的点踩内容；
-- 重复反馈不会二次发送；
-- 反馈超时后允许重试；
-- 空问题、超长补充说明、非法 message_id、非法会话 ID；
-- Dify 401、404、429、超时、断网、空回答；
-- API Key 不出现在首页、JS、CSS、健康检查与错误响应中；
-- 安全响应头与 API `no-store`。
-
-> 自动化测试通过 `unittest.mock` 模拟 Dify 响应，验证的是本项目与 Dify API 的契约和异常处理，不能代替真实知识库回答质量验收。
-
-### 11.2 本地 HTTP 契约联调（模拟 Dify）
-
-开发时额外启动了一个本地模拟 Dify 服务，让 Flask 通过真实 HTTP 完成以下链路（2026-11-06 执行）：
-
-| 验证项 | 实际结果 |
-| --- | --- |
-| 首轮聊天 | HTTP 200，返回 `answer`、`conversation_id`、`message_id` |
-| 第二轮聊天 | HTTP 200，模拟 Dify 收到与首轮相同的 `conversation_id` |
-| 点赞 | HTTP 200，模拟 Dify 收到 `{"rating":"like","user":"demo-user-001"}` |
-| 点踩 + 补充说明 | HTTP 200，`content` 为“反馈原因：回答内容不完整；补充说明：缺少 Service 日志检查步骤” |
-| 重复反馈 | HTTP 200 + `duplicate: true`，模拟 Dify 端只收到 2 条反馈，没有第三次请求 |
-| 真实 Dify 无效 Key | 用故意无效的 Key 请求真实 Dify，返回 401；本项目返回 503 中文鉴权提示，响应中不含该 Key |
-| 未配置 Key | `/api/chat` 返回 503，提示联系管理员配置服务端 Key |
-| 联调结论 | `E2E_CONTRACT_TEST=PASS` |
-
-> 此联调验证网络请求、参数、错误映射和重复拦截；模拟回答不是 RAG 结果，不能当作知识库质量测试。
-
-### 11.3 浏览器 UI 烟雾测试
-
-使用本机 Edge 无头模式 + DevTools Protocol 实际操作页面（2026-11-06）：
-
-- 在输入框输入 CBS/TDH 问题并点击发送；
-- 渲染 AI 回答、Markdown 步骤列表和反馈按钮；
-- 点击“有帮助”，等待“已点赞”和“感谢你的认可！”；
-- 输入第二个问题，确认第二轮请求完成；
-- 点击第二条回答的“没帮助”，打开反馈弹窗；
-- 选择“答案不准确”，填写“缺少 Service 日志检查步骤”并提交；
-- 等待“已反馈”和“感谢反馈，我们将持续优化知识助手。”。
-
 结果：
 
 ```text
-/api/chat      200
-/api/feedback  200
-/api/chat      200
-/api/feedback  200
-模拟 Dify 收到反馈数：2
-浏览器脚本错误：[]
-UI_SMOKE_TEST=PASS
+Ran 36 tests
+OK
 ```
 
-反馈成功后，同一条消息的点赞、点踩按钮均为禁用状态；后端也只收到两条反馈请求。测试截图不参与 Git 提交。
+包含：
 
-> 本次 UI 测试使用本地模拟 Dify 的模拟回答，不是真实 RAG 内容。
+- 原有聊天/反馈 22 项回归测试；
+- 文档模块 14 项测试：
+  - Basic Auth、后台禁用、CSRF；
+  - 文档创建、版本创建；
+  - 审核通过/驳回与重新提交；
+  - Dify 同步前置条件；
+  - 发布与旧版本自动归档；
+  - 下载 `.md`；
+  - 搜索、编辑、非法版本归属；
+  - 管理页面不泄露密码。
 
-### 11.4 10 项验收清单
+GitHub Actions 会运行同一套测试，徽章显示在 README 顶部。
 
-| # | 测试项 | 操作 | 预期结果 | 当前状态 |
-| --- | --- | --- | --- | --- |
-| 1 | CBS/TDH RAG 回答 | 输入“CBS 与 TDH 数据记录数量不一致时，应该如何排查？” | 返回知识库相关回答，不是空回答 | 待真实 Key 验收（模拟链路已通） |
-| 2 | 多轮对话 | 继续追问第二个问题 | 能结合上一轮上下文回答 | 契约已通过，真实上下文待验 |
-| 3 | 点赞 | 对回答点击“有帮助” | 显示“感谢你的认可！”，Dify 记录 like | 契约已通过，Dify 记录待验 |
-| 4 | 点踩原因 | 点击“没帮助”，选择“答案不准确”并提交 | 显示“感谢反馈，我们将持续优化知识助手。” | 契约已通过，Dify 记录待验 |
-| 5 | 点踩补充说明 | 选择“回答内容不完整”，填写补充说明 | Dify 的 `content` 包含原因和补充说明 | 内容拼接已通过，Dify 记录待验 |
-| 6 | 防止重复反馈 | 同一条消息再次点击点赞/点踩 | 按钮已锁定，后端返回 duplicate，不重复发送 | 已通过（自动化 + HTTP 联调） |
-| 7 | 错误 API Key | 使用无效 Key 启动并提问 | 页面只显示鉴权失败提示，不泄露 Key | 已通过（真实 Dify 401） |
-| 8 | 网络异常 | 断开网络或模拟 ConnectionError | 显示网络提示，不展示堆栈 | 已通过（自动化模拟断网） |
-| 9 | Key 前端暴露检查 | 浏览器开发者工具查看 HTML/JS/Network | 请求中无 Dify API Key，只有本地 Flask 请求 | 已通过（自动化检查） |
-| 10 | Dify 反馈查询 | 按第 9 节路径查看日志 | 能看到点赞/点踩和文字反馈 | 待真实 Key 验收 |
+### 13.2 聊天回归
 
-**为什么 1–5、10 还没有全部勾选**：这些项目必须调用你账号下的真实 Dify 应用，才能确认知识库内容、Chatflow 输出和 Dify 日志记录。当前开发环境没有你的 API Key，不能伪造真实 RAG 结果或 Dify 控制台数据。配置 `.env` 后，按上表逐项操作即可完成最终验收。
+原有 10 项聊天验收清单仍适用：
+
+1. CBS/TDH 真实 RAG 回答；
+2. 多轮对话；
+3. 点赞；
+4. 点踩原因；
+5. 点踩补充说明；
+6. 防止重复反馈；
+7. 错误 API Key；
+8. 网络异常；
+9. 前端不暴露 Key；
+10. Dify 控制台查看反馈。
+
+其中 1–5、10 需要真实 Dify Key 才能最终验收；自动化已覆盖接口契约和异常路径。
+
+### 13.3 文档模块验收清单
+
+| # | 测试 | 预期 |
+| --- | --- | --- |
+| 1 | 未配置 `ADMIN_PASSWORD` 访问后台 | 返回 503，后台禁用 |
+| 2 | 错误密码访问 | 返回 401 |
+| 3 | 新建文档 | 生成 v1 草稿 |
+| 4 | 提交审核 | 状态变为待审核 |
+| 5 | 驳回但未填意见 | 操作被拒绝 |
+| 6 | 审核通过 | 状态变为审核通过 |
+| 7 | 关联 Dify 但未登记同步就发布 | 被拦截 |
+| 8 | 登记 Dify 同步后发布 | 发布成功 |
+| 9 | 创建 v2 并发布 | v1 自动归档，v2 发布 |
+| 10 | 下载历史版本 | 返回 `.md` 内容 |
+| 11 | 搜索文档 | 只显示匹配结果 |
+| 12 | 无 Dify 关联的文档 | 审核通过后可直接发布 |
 
 ---
 
-## 12. 常见问题
+## 14. 在 Dify 控制台查看聊天反馈
 
-### 页面显示“待配置 API Key”
+1. 打开 Dify 对应应用；
+2. 进入「日志」或「日志与标注 → 日志」；
+3. 查看「用户反馈」列；
+4. 点击会话行查看具体消息反馈；
+5. 通过 API 产生的反馈以 `DIFY_USER_ID` 记录。
 
-确认项目根目录存在 `.env`，并且：
+官方文档：[Dify 日志](https://docs.dify.ai/zh/cloud/use-dify/monitor/logs)。
+
+---
+
+## 15. 常见问题
+
+### 后台显示 503「管理后台尚未启用」
+
+在 `.env` 中设置：
 
 ```dotenv
-DIFY_API_KEY=app-...
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=你的密码
 ```
 
-保存后重启 Flask。注意 `.env` 必须在 `app.py` 同级目录。
+保存后重启 Flask。
 
-### 提问后提示“鉴权失败”
+### 忘记管理员密码
 
-- 可能填了知识库 API Key，而不是应用 API Key；
-- Key 与应用不匹配；
-- 应用被删除、禁用或工作空间异常；
-- Key 已失效。请到 Dify 重新生成。
+修改 `.env` 中的 `ADMIN_PASSWORD`，重启 Flask。密码无法从页面找回。
 
-### 提示“当前会话已失效”
+### 发布按钮不出现
 
-`conversation_id` 在 Dify 侧不存在。点击页面右上角「新对话」重新开始即可。
+检查：
 
-### 回答很慢或超时
+- 版本是否已审核通过；
+- 关联 Dify 时，是否已登记同步；
+- 当前版本是否已经发布或归档。
 
-阻塞模式必须等待完整答案生成。可以：
+### Dify 文档更新后，聊天仍引用旧内容
 
-- 调大 `.env` 的 `DIFY_TIMEOUT`；
-- 检查 Dify 中 DeepSeek 模型和知识库检索耗时；
-- 后续版本改为流式返回（streaming）。
+- 检查 Dify 索引是否完成；
+- 检查是否更新了正确的数据集/文档 ID；
+- 在 Dify 中执行召回测试；
+- 必要时在 Dify 侧重建索引；
+- 本地发布状态不会自动改变 Dify，二者需要按流程配合。
+
+### 数据库在哪里
+
+默认：
+
+```text
+instance/ops_assistant.sqlite3
+```
+
+备份时复制该文件即可；不要提交到 GitHub。
 
 ### 5000 端口被占用
 
@@ -534,78 +669,55 @@ DIFY_API_KEY=app-...
 PORT=5001
 ```
 
-重启后访问 `http://127.0.0.1:5001`。
-
-### 点踩提交失败
-
-- 查看 Flask 控制台中的 `Dify feedback failed` 日志；
-- 确认消息来自同一个 Dify 应用的同一个 `DIFY_USER_ID`；
-- 确认反馈曾提交成功，避免重复提交；
-- 如果消息已过期或会话被删除，刷新页面重新提问。
+访问 `http://127.0.0.1:5001`。
 
 ---
 
-## 13. 已知限制与后续版本
+## 16. 已知限制与后续版本
 
-V1.2 有意保持轻量：
+V1.3 有意保持轻量：
 
-- 刷新页面后不保留聊天记录；`conversation_id` 只存在当前页面内存中；
-- 不支持流式输出，长回答需要等待；
-- 使用固定演示用户 `demo-user-001`，未接入企业登录；
-- 防重复反馈只在单进程内有效；
-- 没有自建反馈数据库或管理后台，查询依赖 Dify 日志；
-- 没有文件上传、语音、引用来源展示。
+- 单一管理员账号，没有多角色权限；
+- Basic Auth，不是 SSO；
+- Dify 知识库同步是人工确认流程，不自动调用写接口；
+- SQLite 适合单机/小团队，不适合高并发多实例；
+- 没有版本内容 diff 视图；
+- 没有文件上传，文档内容通过 Markdown/纯文本粘贴维护；
+- 聊天历史刷新后不保留（原 V1.2 限制仍存在）。
 
-可演进方向：
+后续方向：
 
-- V1.3：SSE 流式输出、引用来源卡片、会话本地恢复；
-- V1.4：企业登录、用户 ID 映射、反馈后台、Redis 幂等；
-- 生产化：HTTPS、反向代理、限流、审计、监控和密钥托管。
+- 对接企业登录和角色权限；
+- 可选的 Dify `update-by-text` 自动同步 + 索引轮询；
+- 版本 diff、附件上传、批量导入；
+- 审批流通知（邮件/企业微信）；
+- PostgreSQL/Redis 和多实例部署。
 
 ---
 
-## 14. 上传 GitHub 前检查
+## 17. 上传 GitHub
 
 ```powershell
-git init
-git add .
 git status
+git add .
+git commit -m "feat: add document version management"
+git push
 ```
 
-确认暂存区 **没有 `.env`**、`.venv`、日志和真实截图，然后：
+提交前确认：
 
 ```powershell
-git commit -m "feat: enterprise ops AI assistant v1.2 with Dify feedback"
-git branch -M main
-git remote add origin https://github.com/你的用户名/enterprise-ops-ai-assistant.git
-git push -u origin main
+git check-ignore .env instance/ .venv
 ```
 
-再次确认 `.env` 没有被跟踪：
+应该不会把 `.env`、数据库或虚拟环境加入提交。
 
-```powershell
-git check-ignore .env
-git ls-files | Select-String -Pattern "^\.env$"
-```
+如果真实 Key 误提交：
 
-第二条命令应该没有输出。
-
-如果不小心提交了真实 Key：
-
-1. 立即到 Dify 撤销/轮换该 Key；
-2. 从 Git 历史中移除，而不是只删除最新文件；
-3. 检查 GitHub 的 secret scanning 告警。
+1. 立即在 Dify 撤销/轮换 Key；
+2. 从 Git 历史中移除；
+3. 不要只删除最新文件。
 
 ---
 
-## 15. 开发边界说明
-
-- 未修改 Dify 原有 Chatflow 的节点、提示词、知识库和检索配置；
-- 未重新实现 RAG；
-- 未引入额外数据库；
-- 所有示例问题与页面文案均为演示/练习用途；
-- 代码中的注释与 README 均使用中文，便于后续维护。
-
----
-
-**版本**：V1.2 · **技术栈**：HTML + CSS + 原生 JavaScript / Python Flask / Dify Cloud API / DeepSeek / RAG
+**版本**：V1.3 · **技术栈**：HTML + CSS + 原生 JavaScript / Python Flask / SQLite / Dify Cloud API / DeepSeek / RAG

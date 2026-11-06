@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{% block title %}文档版本管理{% endblock %} · 企业智能运维知识助手</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body class="admin-body">
+  <header class="admin-topbar">
+    <div class="admin-topbar__inner">
+      <a class="admin-brand" href="{{ url_for('admin.documents') }}">
+        <span class="admin-brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v16H6.5A2.5 2.5 0 0 0 4 21.5V5.5Z"></path>
+            <path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H19"></path>
+            <path d="M8 7h7M8 10h5"></path>
+          </svg>
+        </span>
+        <span>
+          <strong>文档版本管理</strong>
+          <small>企业智能运维知识助手 · V1.3</small>
+        </span>
+      </a>
+      <nav class="admin-nav" aria-label="后台导航">
+        <a href="{{ url_for('index') }}">返回聊天</a>
+        <span class="admin-user">管理员：{{ admin_username }}</span>
+      </nav>
+    </div>
+  </header>
+
+  <main class="admin-shell">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-stack" role="status">
+          {% for category, message in messages %}
+            <div class="flash flash--{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="admin-footer">
+    <span>文档版本管理 · SQLite 本地记录</span>
+    <span aria-hidden="true">·</span>
+    <span>审核通过并在 Dify 完成同步后方可发布</span>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/admin.js') }}" defer></script>
+</body>
+</html>

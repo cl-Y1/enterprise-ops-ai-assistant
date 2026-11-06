@@ -1,0 +1,113 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ '新建文档' if mode == 'new' else '编辑文档信息' }}{% endblock %}
+{% block content %}
+<nav class="breadcrumb" aria-label="面包屑">
+  <a href="{{ url_for('admin.documents') }}">文档版本管理</a>
+  <span aria-hidden="true">/</span>
+  {% if mode == 'edit' and document %}
+    <a href="{{ url_for('admin.document_detail', document_id=document.id) }}">{{ document.title }}</a>
+    <span aria-hidden="true">/</span>
+    <span>编辑信息</span>
+  {% else %}
+    <span>新建文档</span>
+  {% endif %}
+</nav>
+
+<div class="page-heading page-heading--compact">
+  <div>
+    <p class="eyebrow">{{ 'NEW DOCUMENT' if mode == 'new' else 'DOCUMENT INFO' }}</p>
+    <h1>{{ '新建知识文档' if mode == 'new' else '编辑文档信息' }}</h1>
+    <p class="page-description">
+      {% if mode == 'new' %}
+        初始版本会保存为草稿。提交审核、Dify 同步和发布在文档详情页完成。
+      {% else %}
+        这里只修改文档基础信息，不会生成新版本；内容变更请使用「新增版本」。
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+{% if errors %}
+  <div class="form-errors" role="alert">
+    <strong>请检查以下内容：</strong>
+    <ul>
+      {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+<form class="form-card" method="post" action="{% if mode == 'new' %}{{ url_for('admin.new_document') }}{% else %}{{ url_for('admin.edit_document', document_id=document.id) }}{% endif %}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <section class="form-section">
+    <div class="form-section__heading">
+      <h2>基础信息</h2>
+      <p>用于在后台检索和识别文档，不会直接写入 Dify。</p>
+    </div>
+    <div class="form-grid form-grid--two">
+      <label class="field field--wide">
+        <span>文档标题 <em>*</em></span>
+        <input type="text" name="title" value="{{ form.title }}" maxlength="120" required placeholder="例如：CBS 与 TDH 数据一致性排查手册">
+      </label>
+      <label class="field">
+        <span>分类</span>
+        <input type="text" name="category" value="{{ form.category }}" maxlength="50" placeholder="例如：数据同步">
+      </label>
+      <label class="field">
+        <span>负责人</span>
+        <input type="text" name="owner" value="{{ form.owner }}" maxlength="50" placeholder="例如：运维一组">
+      </label>
+      <label class="field field--wide">
+        <span>文档说明</span>
+        <textarea name="description" maxlength="500" rows="3" placeholder="简要说明文档用途、适用系统或使用范围">{{ form.description }}</textarea>
+      </label>
+    </div>
+  </section>
+
+  <section class="form-section">
+    <div class="form-section__heading">
+      <h2>Dify 知识库关联</h2>
+      <p>关联后，发布前必须先完成 Dify 同步登记；不关联也可以管理本地版本。</p>
+    </div>
+    <div class="form-grid form-grid--two">
+      <label class="field">
+        <span>Dify 数据集 ID</span>
+        <input type="text" name="dify_dataset_id" value="{{ form.dify_dataset_id }}" maxlength="120" placeholder="知识库 URL 中 /datasets/ 后的 ID">
+      </label>
+      <label class="field">
+        <span>Dify 文档 ID</span>
+        <input type="text" name="dify_document_id" value="{{ form.dify_document_id }}" maxlength="120" placeholder="知识库文档详情中的 ID">
+      </label>
+    </div>
+    <div class="field-help">
+      两个 ID 可以同时留空。填写时必须成对填写，只允许字母、数字、下划线和短横线。请在 Dify 知识库中核对，不要填入 API Key。
+    </div>
+  </section>
+
+  {% if mode == 'new' %}
+    <section class="form-section">
+      <div class="form-section__heading">
+        <h2>初始版本 v1</h2>
+        <p>版本内容将作为 v1 草稿保存，可用于下载后更新 Dify 知识库。</p>
+      </div>
+      <div class="form-grid">
+        <label class="field">
+          <span>本次更新原因 <em>*</em></span>
+          <input type="text" name="update_reason" value="{{ form.update_reason }}" maxlength="500" required placeholder="例如：补充 Service 日志排查步骤">
+        </label>
+        <label class="field">
+          <span>文档内容（Markdown / 纯文本）<em>*</em></span>
+          <textarea class="content-editor" name="content" rows="16" maxlength="{{ config.MAX_DOCUMENT_CONTENT }}" required placeholder="粘贴或编写文档内容……">{{ form.content }}</textarea>
+          <span class="field-hint">上限 {{ config.MAX_DOCUMENT_CONTENT }} 字符。保存后可在版本详情中下载为 .md 文件。</span>
+        </label>
+        <div class="field-help">更新人将记录为当前管理员：{{ admin_username }}。</div>
+      </div>
+    </section>
+  {% endif %}
+
+  <div class="form-actions">
+    <a class="button button--ghost" href="{% if mode == 'edit' and document %}{{ url_for('admin.document_detail', document_id=document.id) }}{% else %}{{ url_for('admin.documents') }}{% endif %}">取消</a>
+    <button class="button button--primary" type="submit">{{ '创建文档' if mode == 'new' else '保存信息' }}</button>
+  </div>
+</form>
+{% endblock %}

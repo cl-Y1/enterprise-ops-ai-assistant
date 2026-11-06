@@ -1,0 +1,65 @@
+{% extends "admin/base.html" %}
+{% block title %}新增版本 · {{ document.title }}{% endblock %}
+{% block content %}
+<nav class="breadcrumb" aria-label="面包屑">
+  <a href="{{ url_for('admin.documents') }}">文档版本管理</a>
+  <span aria-hidden="true">/</span>
+  <a href="{{ url_for('admin.document_detail', document_id=document.id) }}">{{ document.title }}</a>
+  <span aria-hidden="true">/</span>
+  <span>新增版本</span>
+</nav>
+
+<div class="page-heading page-heading--compact">
+  <div>
+    <p class="eyebrow">NEW VERSION</p>
+    <h1>新增版本</h1>
+    <p class="page-description">
+      为「{{ document.title }}」创建 v{{ (latest.version_no if latest else 0) + 1 }}。保存后状态为草稿，审核和发布在文档详情页完成。
+    </p>
+  </div>
+</div>
+
+{% if errors %}
+  <div class="form-errors" role="alert">
+    <strong>请检查以下内容：</strong>
+    <ul>
+      {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+<form class="form-card" method="post" action="{{ url_for('admin.add_version', document_id=document.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <section class="form-section">
+    <div class="form-section__heading">
+      <h2>变更说明</h2>
+      <p>更新原因会进入版本历史，方便后续追溯。</p>
+    </div>
+    <div class="form-grid">
+      <label class="field">
+        <span>本次更新原因 <em>*</em></span>
+        <input type="text" name="update_reason" value="{{ form.update_reason }}" maxlength="500" required placeholder="例如：修正连接池参数，补充回滚步骤">
+      </label>
+      <div class="field-help">更新人将记录为当前管理员：{{ admin_username }}。</div>
+    </div>
+  </section>
+
+  <section class="form-section">
+    <div class="form-section__heading">
+      <h2>文档内容</h2>
+      <p>默认带入上一版本内容，请直接修改需要更新的部分。</p>
+    </div>
+    <label class="field">
+      <span>Markdown / 纯文本 <em>*</em></span>
+      <textarea class="content-editor" name="content" rows="22" maxlength="{{ config.MAX_DOCUMENT_CONTENT }}" required>{{ form.content }}</textarea>
+      <span class="field-hint">上限 {{ config.MAX_DOCUMENT_CONTENT }} 字符。版本保存后可从详情页下载为 .md 文件。</span>
+    </label>
+  </section>
+
+  <div class="form-actions">
+    <a class="button button--ghost" href="{{ url_for('admin.document_detail', document_id=document.id) }}">取消</a>
+    <button class="button button--primary" type="submit">保存为草稿</button>
+  </div>
+</form>
+{% endblock %}

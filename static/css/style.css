@@ -831,6 +831,24 @@ svg {
   background: #bcc7d8;
 }
 
+.footer-link {
+  color: #6f7f99;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.footer-link:hover {
+  color: var(--blue-700);
+  border-color: #b9cdf1;
+}
+
+.footer-link:focus-visible {
+  outline: 2px solid rgba(36, 99, 235, 0.28);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 /* 反馈弹窗 */
 .feedback-dialog {
   width: min(620px, calc(100% - 32px));

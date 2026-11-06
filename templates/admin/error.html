@@ -1,0 +1,13 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<section class="access-card">
+  <div class="access-code">{{ status }}</div>
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
+  <div class="button-row">
+    <a class="button button--primary" href="{{ url_for('index') }}">返回聊天</a>
+    <a class="button button--ghost" href="{{ url_for('admin.documents') }}">打开文档管理</a>
+  </div>
+</section>
+{% endblock %}

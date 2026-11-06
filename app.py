@@ -1,10 +1,11 @@
-"""企业智能运维知识助手 V1.2 —— Flask 后端。
+"""企业智能运维知识助手 V1.3 —— Flask 后端。
 
 职责：
 1. 提供聊天页面；
 2. 在服务端安全地调用 Dify Chatflow API；
 3. 在服务端调用 Dify 消息反馈 API；
-4. 做输入校验、异常处理和错误信息脱敏。
+4. 提供文档版本管理后台（SQLite + 管理员认证）；
+5. 做输入校验、异常处理和错误信息脱敏。
 
 说明：Dify API Key 只从环境变量读取，绝不会返回给浏览器。
 """
@@ -12,6 +13,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 import threading
 import uuid
 from pathlib import Path
@@ -21,6 +23,9 @@ from urllib.parse import quote
 import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
+
+from admin import admin_bp
+from documents import DocumentRepository, init_db
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
@@ -43,8 +48,9 @@ GENERIC_FEEDBACK_ERROR = "反馈提交失败，请稍后重试。"
 class FeedbackRegistry:
     """进程内的轻量防重复提交登记表。
 
-    V1.2 不引入数据库；服务重启后登记表会清空。多个 Flask 进程之间
-    不共享该表，因此正式多进程部署时应替换为 Redis 或数据库。
+    聊天反馈仍由 Dify 原生记录，这里只防止短时间重复提交。服务重启后
+    登记表会清空；多个 Flask 进程之间不共享，因此正式多进程部署时应
+    替换为 Redis 或数据库。
     """
 
     def __init__(self) -> None:
@@ -143,6 +149,7 @@ def _log_dify_error(app: Flask, scene: str, response: requests.Response) -> None
 def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app = Flask(__name__)
     default_api_base = "https://api.dify.ai/v1"
+    default_db_path = str(Path(app.instance_path) / "ops_assistant.sqlite3")
     app.config.from_mapping(
         DIFY_API_BASE_URL=os.getenv("DIFY_API_BASE_URL", default_api_base).strip() or default_api_base,
         DIFY_API_KEY=os.getenv("DIFY_API_KEY", "").strip(),
@@ -150,6 +157,11 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         DIFY_TIMEOUT=_env_float("DIFY_TIMEOUT", 60.0),
         MAX_QUERY_LENGTH=_env_int("MAX_QUERY_LENGTH", 2000),
         MAX_COMMENT_LENGTH=_env_int("MAX_COMMENT_LENGTH", 300),
+        MAX_DOCUMENT_CONTENT=_env_int("MAX_DOCUMENT_CONTENT", 200000),
+        DATABASE_PATH=os.getenv("DATABASE_PATH", "").strip() or default_db_path,
+        ADMIN_USERNAME=os.getenv("ADMIN_USERNAME", "admin").strip() or "admin",
+        ADMIN_PASSWORD=os.getenv("ADMIN_PASSWORD", "").strip(),
+        SECRET_KEY=os.getenv("SECRET_KEY", "").strip() or secrets.token_hex(32),
         HOST=os.getenv("HOST", "127.0.0.1").strip(),
         PORT=_env_int("PORT", 5000),
         FLASK_DEBUG=os.getenv("FLASK_DEBUG", "0").strip().lower() in {"1", "true", "yes"},
@@ -158,10 +170,24 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         app.config.update(test_config)
 
     app.json.ensure_ascii = False
+    app.secret_key = app.config["SECRET_KEY"]
+    app.config.update(
+        SESSION_COOKIE_NAME="ops_admin_session",
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+    )
     app.extensions["feedback_registry"] = FeedbackRegistry()
+
+    # 文档版本管理数据（SQLite）。目录不存在时自动创建。
+    database_path = str(app.config["DATABASE_PATH"])
+    init_db(database_path)
+    app.extensions["document_repo"] = DocumentRepository(database_path)
+    app.register_blueprint(admin_bp)
 
     if not app.config["DIFY_API_KEY"]:
         app.logger.warning("未配置 DIFY_API_KEY，聊天和反馈接口将返回服务未配置提示。")
+    if not app.config["ADMIN_PASSWORD"]:
+        app.logger.warning("未配置 ADMIN_PASSWORD，文档版本管理后台当前处于禁用状态。")
     if not app.config["DIFY_USER_ID"]:
         app.config["DIFY_USER_ID"] = "demo-user-001"
 
@@ -182,7 +208,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             "base-uri 'self'; "
             "form-action 'self'",
         )
-        if request.path.startswith("/api/"):
+        if request.path.startswith("/api/") or request.path.startswith("/admin"):
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -198,7 +224,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 "ok": True,
                 "configured": bool(app.config["DIFY_API_KEY"]),
                 "service": "企业智能运维知识助手",
-                "version": "1.2",
+                "version": "1.3",
+                "document_management": True,
             }
         )
 
@@ -429,8 +456,9 @@ app = create_app()
 
 if __name__ == "__main__":
     print("=" * 62)
-    print("企业智能运维知识助手 V1.2")
-    print(f"访问地址：http://{app.config['HOST']}:{app.config['PORT']}")
+    print("企业智能运维知识助手 V1.3")
+    print(f"聊天地址：http://{app.config['HOST']}:{app.config['PORT']}")
+    print(f"文档管理：http://{app.config['HOST']}:{app.config['PORT']}/admin/documents")
     print("按 Ctrl + C 停止服务")
     print("=" * 62)
     app.run(

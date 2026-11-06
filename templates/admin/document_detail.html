@@ -1,0 +1,281 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ document.title }}{% endblock %}
+{% block content %}
+<nav class="breadcrumb" aria-label="面包屑">
+  <a href="{{ url_for('admin.documents') }}">文档版本管理</a>
+  <span aria-hidden="true">/</span>
+  <span>{{ document.title }}</span>
+</nav>
+
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">{{ document.category or 'UNCATEGORIZED' }}</p>
+    <h1>{{ document.title }}</h1>
+    <p class="page-description">{{ document.description or '暂无文档说明。' }}</p>
+    <div class="meta-row">
+      <span>负责人：{{ document.owner or '未填写' }}</span>
+      <span>最近更新：{{ document.updated_at }}</span>
+      {% if dify_linked %}
+        <span class="meta-chip meta-chip--linked">已关联 Dify</span>
+      {% else %}
+        <span class="meta-chip">未关联 Dify</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="button-row">
+    <a class="button button--secondary" href="{{ url_for('admin.edit_document', document_id=document.id) }}">编辑信息</a>
+    <a class="button button--primary" href="{{ url_for('admin.add_version', document_id=document.id) }}">＋ 新增版本</a>
+  </div>
+</div>
+
+<div class="summary-strip">
+  <div>
+    <span class="summary-label">当前发布</span>
+    <strong>{% if published %}v{{ published.version_no }}{% else %}尚未发布{% endif %}</strong>
+  </div>
+  <div>
+    <span class="summary-label">最新版本</span>
+    <strong>{% if latest %}v{{ latest.version_no }}{% else %}—{% endif %}</strong>
+  </div>
+  <div>
+    <span class="summary-label">版本总数</span>
+    <strong>{{ document.version_count }}</strong>
+  </div>
+  <div>
+    <span class="summary-label">当前查看</span>
+    <strong>{% if selected %}v{{ selected.version_no }}{% else %}—{% endif %}</strong>
+  </div>
+</div>
+
+{% if selected %}
+<div class="detail-grid">
+  <div class="detail-main">
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <div class="title-with-badges">
+            <h2>版本 v{{ selected.version_no }} 内容</h2>
+            <span class="status status--{{ selected.review_status }}">{{ review_labels.get(selected.review_status, selected.review_status) }}</span>
+            <span class="status status--{{ selected.publish_status }}">{{ publish_labels.get(selected.publish_status, selected.publish_status) }}</span>
+          </div>
+          <p>创建于 {{ selected.created_at }} · 更新人 {{ selected.updated_by }}</p>
+        </div>
+        <div class="button-row">
+          <button class="button button--secondary" type="button" data-copy-target="versionContent">复制内容</button>
+          <a class="button button--ghost" href="{{ url_for('admin.download_version', version_id=selected.id) }}">下载 .md</a>
+        </div>
+      </div>
+
+      <dl class="meta-grid">
+        <div>
+          <dt>更新原因</dt>
+          <dd>{{ selected.update_reason }}</dd>
+        </div>
+        <div>
+          <dt>内容摘要</dt>
+          <dd><code>{{ selected.content_sha256[:12] }}</code> · {{ selected.content|length }} 字符</dd>
+        </div>
+        {% if selected.reviewed_at %}
+          <div>
+            <dt>审核人 / 时间</dt>
+            <dd>{{ selected.reviewer or '—' }} · {{ selected.reviewed_at }}</dd>
+          </div>
+        {% endif %}
+        {% if selected.review_comment %}
+          <div>
+            <dt>审核意见</dt>
+            <dd>{{ selected.review_comment }}</dd>
+          </div>
+        {% endif %}
+      </dl>
+
+      <pre class="document-content" id="versionContent">{{ selected.content }}</pre>
+    </section>
+
+    <section class="panel">
+      <div class="panel-toolbar">
+        <div>
+          <h2>版本历史</h2>
+          <p>历史版本永久保留；旧发布版本在新版本发布时自动归档。</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table data-table--compact">
+          <thead>
+            <tr>
+              <th scope="col">版本</th>
+              <th scope="col">更新原因</th>
+              <th scope="col">更新人</th>
+              <th scope="col">审核</th>
+              <th scope="col">发布</th>
+              <th scope="col">Dify</th>
+              <th scope="col">时间</th>
+              <th scope="col" class="align-right">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for version in versions %}
+              <tr class="{% if version.id == selected.id %}is-selected{% endif %}">
+                <td><span class="version-chip">v{{ version.version_no }}</span></td>
+                <td class="reason-cell">{{ version.update_reason }}</td>
+                <td>{{ version.updated_by }}</td>
+                <td><span class="status status--{{ version.review_status }}">{{ review_labels.get(version.review_status, version.review_status) }}</span></td>
+                <td><span class="status status--{{ version.publish_status }}">{{ publish_labels.get(version.publish_status, version.publish_status) }}</span></td>
+                <td><span class="status status--{{ version.dify_sync_status }}">{{ sync_labels.get(version.dify_sync_status, version.dify_sync_status) }}</span></td>
+                <td class="nowrap">{{ version.created_at }}</td>
+                <td class="align-right">
+                  <a class="text-link" href="{{ url_for('admin.document_detail', document_id=document.id, version=version.id) }}">查看</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <aside class="detail-side">
+    <section class="panel action-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>审核与发布</h2>
+          <p>状态变更会写入操作记录。</p>
+        </div>
+      </div>
+
+      {% if selected.publish_status == 'published' %}
+        <div class="state-note state-note--success">
+          <strong>当前已发布</strong>
+          <p>该版本正在作为知识库的生效版本。发布新版本后，本版本会自动归档。</p>
+        </div>
+      {% elif selected.publish_status == 'archived' %}
+        <div class="state-note">
+          <strong>历史归档版本</strong>
+          <p>该版本已被新发布版本替代，内容仍可下载追溯，不能重新发布。</p>
+        </div>
+      {% elif selected.review_status in ['draft', 'rejected'] %}
+        {% if selected.review_status == 'rejected' %}
+          <div class="state-note state-note--danger">
+            <strong>审核未通过</strong>
+            <p>{{ selected.review_comment or '请根据审核意见修改内容后重新提交。' }}</p>
+          </div>
+        {% endif %}
+        <p class="action-help">确认内容已经准备好后，提交给审核人。</p>
+        <form method="post" action="{{ url_for('admin.submit_version', version_id=selected.id) }}" data-confirm="确认提交这个版本审核？">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="button button--primary button--block" type="submit">提交审核</button>
+        </form>
+      {% elif selected.review_status == 'pending' %}
+        <p class="action-help">审核人：{{ admin_username }}。通过后才可以进入 Dify 同步和发布。</p>
+        <form class="stack-form" method="post" action="{{ url_for('admin.review_version', version_id=selected.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label class="field">
+            <span>审核意见 <small>驳回时必填</small></span>
+            <textarea name="review_comment" rows="3" maxlength="1000" placeholder="例如：补充回滚步骤后再提交"></textarea>
+          </label>
+          <div class="button-row button-row--stretch">
+            <button class="button button--success" type="submit" name="decision" value="approved">审核通过</button>
+            <button class="button button--danger" type="submit" name="decision" value="rejected" data-confirm="确认驳回这个版本？">驳回</button>
+          </div>
+        </form>
+      {% elif selected.review_status == 'approved' %}
+        {% if dify_linked and selected.dify_sync_status != 'synced' %}
+          <div class="state-note state-note--warning">
+            <strong>等待 Dify 同步</strong>
+            <p>该文档已关联 Dify 知识库。请先在右侧下载内容并在 Dify 完成更新，登记同步后才能发布。</p>
+          </div>
+        {% else %}
+          <div class="state-note state-note--success">
+            <strong>已具备发布条件</strong>
+            <p>{% if dify_linked %}Dify 同步已登记。{% else %}该文档未关联 Dify，发布只更新本地版本记录。{% endif %}</p>
+          </div>
+          <form method="post" action="{{ url_for('admin.publish_version', version_id=selected.id) }}" data-confirm="发布后旧发布版本会自动归档，确认发布？">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="button button--primary button--block" type="submit">发布此版本</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    </section>
+
+    <section class="panel action-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Dify 知识库同步</h2>
+          <p>本地审核通过后，再更新 Dify。</p>
+        </div>
+        {% if dify_linked %}<span class="meta-chip meta-chip--linked">已关联</span>{% endif %}
+      </div>
+
+      {% if dify_linked %}
+        <dl class="dify-meta">
+          <div><dt>数据集 ID</dt><dd><code>{{ document.dify_dataset_id }}</code></dd></div>
+          <div><dt>文档 ID</dt><dd><code>{{ document.dify_document_id }}</code></dd></div>
+          <div><dt>同步状态</dt><dd><span class="status status--{{ selected.dify_sync_status }}">{{ sync_labels.get(selected.dify_sync_status, selected.dify_sync_status) }}</span></dd></div>
+        </dl>
+
+        {% if selected.review_status == 'approved' and selected.publish_status == 'unpublished' and selected.dify_sync_status != 'synced' %}
+          <ol class="sync-steps">
+            <li>下载或复制当前版本内容。</li>
+            <li>在 Dify 知识库中找到对应文档，替换内容并等待重新分段、索引完成。</li>
+            <li>回到这里填写同步说明，登记后再发布版本。</li>
+          </ol>
+          <form class="stack-form" method="post" action="{{ url_for('admin.sync_version', version_id=selected.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label class="field">
+              <span>同步说明 <em>*</em></span>
+              <textarea name="dify_sync_note" rows="3" maxlength="1000" required placeholder="例如：2026-11-06 16:30 在 Dify 替换文档，索引状态 completed"></textarea>
+            </label>
+            <button class="button button--block" type="submit" data-confirm="确认已经完成 Dify 知识库更新并完成索引？">确认已同步</button>
+          </form>
+        {% elif selected.dify_sync_status == 'synced' %}
+          <div class="state-note state-note--success">
+            <strong>已登记同步</strong>
+            <p>{{ selected.dify_sync_note }}</p>
+            <p class="muted">登记人：{{ selected.dify_synced_by }} · {{ selected.dify_synced_at }}</p>
+          </div>
+        {% else %}
+          <p class="action-help">审核通过后，这里会出现 Dify 同步登记表单。</p>
+        {% endif %}
+      {% else %}
+        <div class="state-note">
+          <strong>未关联 Dify 知识库</strong>
+          <p>该文档只维护本地版本。若需要接入知识库，请编辑文档信息并填写数据集与文档 ID。</p>
+        </div>
+        <a class="text-link" href="{{ url_for('admin.edit_document', document_id=document.id) }}">去关联 Dify</a>
+      {% endif %}
+    </section>
+
+    <section class="panel action-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>操作记录</h2>
+          <p>仅显示当前查看版本的操作。</p>
+        </div>
+      </div>
+      {% if events %}
+        <ol class="timeline">
+          {% for event in events %}
+            <li>
+              <span class="timeline-dot" aria-hidden="true"></span>
+              <div>
+                <strong>{{ event_labels.get(event.action, event.action) }}</strong>
+                <p>{{ event.actor }} · {{ event.created_at }}</p>
+                {% if event.note %}<p class="timeline-note">{{ event.note }}</p>{% endif %}
+              </div>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p class="muted">暂无操作记录。</p>
+      {% endif %}
+    </section>
+  </aside>
+</div>
+{% else %}
+  <div class="empty-state">
+    <h3>该文档还没有版本</h3>
+    <p>创建第一个版本后才能进入审核与发布流程。</p>
+    <a class="button button--primary" href="{{ url_for('admin.add_version', document_id=document.id) }}">新增版本</a>
+  </div>
+{% endif %}
+{% endblock %}

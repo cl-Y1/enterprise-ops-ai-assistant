@@ -1,0 +1,119 @@
+{% extends "admin/base.html" %}
+{% block title %}文档版本管理{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">KNOWLEDGE GOVERNANCE</p>
+    <h1>文档版本管理</h1>
+    <p class="page-description">维护运维知识文档的每一次变更、审核与发布状态，并在 Dify 知识库完成更新后登记同步。</p>
+  </div>
+  <a class="button button--primary" href="{{ url_for('admin.new_document') }}">
+    <span aria-hidden="true">＋</span> 新建文档
+  </a>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <span class="stat-label">文档总数</span>
+    <strong>{{ stats.documents }}</strong>
+    <span class="stat-note">已建立版本记录的文档</span>
+  </div>
+  <div class="stat-card stat-card--amber">
+    <span class="stat-label">待审核版本</span>
+    <strong>{{ stats.pending }}</strong>
+    <span class="stat-note">需要审核人处理</span>
+  </div>
+  <div class="stat-card stat-card--green">
+    <span class="stat-label">已发布文档</span>
+    <strong>{{ stats.published }}</strong>
+    <span class="stat-note">当前有生效版本</span>
+  </div>
+  <div class="stat-card stat-card--slate">
+    <span class="stat-label">历史归档版本</span>
+    <strong>{{ stats.archived_versions }}</strong>
+    <span class="stat-note">随新版本发布自动归档</span>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-toolbar">
+    <div>
+      <h2>知识文档</h2>
+      <p>共 {{ documents|length }} 条{% if search %}匹配结果{% endif %}</p>
+    </div>
+    <form class="search-form" action="{{ url_for('admin.documents') }}" method="get" role="search">
+      <label class="sr-only" for="documentSearch">搜索文档</label>
+      <input id="documentSearch" type="search" name="q" value="{{ search }}" placeholder="搜索标题、分类或负责人">
+      <button class="button button--secondary" type="submit">搜索</button>
+      {% if search %}<a class="text-link" href="{{ url_for('admin.documents') }}">清除</a>{% endif %}
+    </form>
+  </div>
+
+  {% if documents %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">文档</th>
+            <th scope="col">负责人</th>
+            <th scope="col">当前发布</th>
+            <th scope="col">最新版本</th>
+            <th scope="col">审核状态</th>
+            <th scope="col">最近更新</th>
+            <th scope="col" class="align-right">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for document in documents %}
+            <tr>
+              <td>
+                <a class="table-title" href="{{ url_for('admin.document_detail', document_id=document.id) }}">{{ document.title }}</a>
+                <div class="table-subtitle">
+                  {{ document.category or '未分类' }} · {{ document.version_count }} 个版本
+                </div>
+              </td>
+              <td>{{ document.owner or '—' }}</td>
+              <td>
+                {% if document.published_version_no %}
+                  <span class="version-chip">v{{ document.published_version_no }}</span>
+                {% else %}
+                  <span class="muted">未发布</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="version-chip version-chip--plain">v{{ document.latest_version_no }}</span>
+                <div class="table-subtitle">{{ document.latest_updated_by or '—' }}</div>
+              </td>
+              <td>
+                <span class="status status--{{ document.latest_review_status }}">
+                  {{ review_labels.get(document.latest_review_status, document.latest_review_status) }}
+                </span>
+              </td>
+              <td class="nowrap">{{ document.updated_at }}</td>
+              <td class="align-right">
+                <a class="text-link" href="{{ url_for('admin.document_detail', document_id=document.id) }}">查看</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon" aria-hidden="true">＋</div>
+      <h3>{% if search %}没有匹配的文档{% else %}还没有文档版本记录{% endif %}</h3>
+      <p>{% if search %}换一个关键词试试，或清除搜索条件。{% else %}从一篇运维知识文档开始建立可追溯的版本记录。{% endif %}</p>
+      {% if search %}
+        <a class="button button--secondary" href="{{ url_for('admin.documents') }}">清除搜索</a>
+      {% else %}
+        <a class="button button--primary" href="{{ url_for('admin.new_document') }}">新建第一篇文档</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+<div class="info-banner">
+  <strong>发布前置条件：</strong>
+  版本必须审核通过；如果关联了 Dify 知识库，还需要先登记 Dify 同步。新版本发布后，旧发布版本会自动转为「已归档」，历史内容不会删除。
+</div>
+{% endblock %}
