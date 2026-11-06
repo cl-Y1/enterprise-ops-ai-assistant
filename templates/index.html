@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="基于 Dify 与 DeepSeek 的企业智能运维知识问答助手">
+  <title>企业智能运维知识助手</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="企业智能运维知识助手首页">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3 4.5 6.5v5.2c0 4.4 3.1 8.2 7.5 9.3 4.4-1.1 7.5-4.9 7.5-9.3V6.5L12 3Z"></path>
+            <path d="m9 12 2 2 4-4"></path>
+          </svg>
+        </span>
+        <span class="brand-copy">
+          <span class="brand-title">企业智能运维知识助手</span>
+          <span class="brand-subtitle">Enterprise Ops AI Assistant</span>
+        </span>
+      </a>
+
+      <div class="topbar-actions">
+        <div class="service-badge is-checking" id="serviceBadge" title="正在检查后端配置">
+          <span class="service-dot" aria-hidden="true"></span>
+          <span id="serviceText">检查服务中</span>
+        </div>
+        <button class="ghost-button" id="newChatButton" type="button" title="清空当前对话并开始新会话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14"></path>
+          </svg>
+          新对话
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="chat-card" aria-label="智能运维知识问答">
+        <div class="chat-toolbar">
+          <div>
+            <h1>知识问答</h1>
+            <p>基于企业运维知识库检索，回答会标注可反馈状态</p>
+          </div>
+          <div class="secure-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="4" y="10" width="16" height="10" rx="2"></rect>
+              <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+            </svg>
+            API 密钥仅保存在服务端
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages" role="log" aria-live="polite" aria-label="对话消息">
+          <section class="welcome-panel" id="welcomePanel">
+            <div class="welcome-badge">
+              <span class="pulse-dot" aria-hidden="true"></span>
+              Enterprise Ops · RAG 知识库
+            </div>
+            <h2>从知识库中，快速找到可执行的答案</h2>
+            <p class="welcome-description">
+              查询系统告警、数据一致性、发布故障与日常运维操作。回答来自企业知识库，
+              你可以对每一条回答点赞或反馈问题。
+            </p>
+
+            <div class="suggestion-block">
+              <div class="suggestion-heading">
+                <span>可以这样问</span>
+                <span class="suggestion-line" aria-hidden="true"></span>
+              </div>
+              <div class="suggestion-grid">
+                <button class="suggestion-card" type="button" data-question="CBS 与 TDH 数据记录数量不一致时，应该如何排查？">
+                  <span class="suggestion-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M4 7h16M4 12h16M4 17h10"></path>
+                    </svg>
+                  </span>
+                  <span>CBS 与 TDH 数据记录数量不一致时，应该如何排查？</span>
+                </button>
+                <button class="suggestion-card" type="button" data-question="数据库连接池耗尽时，通常有哪些排查步骤？">
+                  <span class="suggestion-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <ellipse cx="12" cy="5" rx="7" ry="3"></ellipse>
+                      <path d="M5 5v7c0 1.7 3.1 3 7 3s7-1.3 7-3V5"></path>
+                      <path d="M5 12v7c0 1.7 3.1 3 7 3s7-1.3 7-3v-7"></path>
+                    </svg>
+                  </span>
+                  <span>数据库连接池耗尽时，通常有哪些排查步骤？</span>
+                </button>
+                <button class="suggestion-card" type="button" data-question="服务发布后接口出现 502，应该先检查什么？">
+                  <span class="suggestion-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 9v4"></path>
+                      <path d="M12 17h.01"></path>
+                      <path d="M10.3 4.2 2.7 17.4A2 2 0 0 0 4.4 20h15.2a2 2 0 0 0 1.7-2.6L13.7 4.2a2 2 0 0 0-3.4 0Z"></path>
+                    </svg>
+                  </span>
+                  <span>服务发布后接口出现 502，应该先检查什么？</span>
+                </button>
+                <button class="suggestion-card" type="button" data-question="收到磁盘空间不足告警时，如何快速定位大文件？">
+                  <span class="suggestion-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="6"></circle>
+                      <path d="m16 16 4 4"></path>
+                    </svg>
+                  </span>
+                  <span>收到磁盘空间不足告警时，如何快速定位大文件？</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="composer-wrap">
+          <form class="composer" id="chatForm" autocomplete="off">
+            <label class="sr-only" for="messageInput">输入运维问题</label>
+            <textarea
+              id="messageInput"
+              name="message"
+              rows="1"
+              maxlength="2000"
+              placeholder="请输入你的运维问题，例如：CBS 与 TDH 数据记录数量不一致时，应该如何排查？"
+            ></textarea>
+            <button class="send-button" id="sendButton" type="submit">
+              <span>发送</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m5 12 14 0"></path>
+                <path d="m13 6 6 6-6 6"></path>
+              </svg>
+            </button>
+          </form>
+          <div class="composer-meta">
+            <span>Enter 发送，Shift + Enter 换行</span>
+            <span><span id="charCount">0</span> / 2000</span>
+          </div>
+          <p class="disclaimer">AI 回答可能存在偏差，请结合实际情况判断；请勿输入账号、密码等敏感信息。</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <span>企业智能运维知识助手 · V1.2</span>
+      <span class="footer-divider" aria-hidden="true"></span>
+      <span>由 Dify Chatflow + DeepSeek + RAG 驱动</span>
+    </footer>
+  </div>
+
+  <dialog class="feedback-dialog" id="feedbackDialog" aria-labelledby="feedbackTitle">
+    <form class="feedback-form" id="feedbackForm" novalidate>
+      <div class="feedback-header">
+        <div class="feedback-title-wrap">
+          <span class="feedback-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"></path>
+              <path d="M8 9h8M8 13h5"></path>
+            </svg>
+          </span>
+          <div>
+            <h2 id="feedbackTitle">这条回答哪里需要改进？</h2>
+            <p>你的反馈会提交到 Dify，用于持续优化知识库与回答质量。</p>
+          </div>
+        </div>
+        <button class="icon-button" id="closeFeedbackButton" type="button" aria-label="关闭反馈弹窗">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18"></path>
+          </svg>
+        </button>
+      </div>
+
+      <fieldset class="reason-fieldset">
+        <legend>请选择反馈原因 <span class="required-mark">*</span></legend>
+        <div class="reason-grid">
+          <label class="reason-option">
+            <input type="radio" name="reason" value="答案不准确">
+            <span class="reason-radio" aria-hidden="true"></span>
+            <span>答案不准确</span>
+          </label>
+          <label class="reason-option">
+            <input type="radio" name="reason" value="回答内容不完整">
+            <span class="reason-radio" aria-hidden="true"></span>
+            <span>回答内容不完整</span>
+          </label>
+          <label class="reason-option">
+            <input type="radio" name="reason" value="操作步骤已经过时">
+            <span class="reason-radio" aria-hidden="true"></span>
+            <span>操作步骤已经过时</span>
+          </label>
+          <label class="reason-option">
+            <input type="radio" name="reason" value="没有解决我的问题">
+            <span class="reason-radio" aria-hidden="true"></span>
+            <span>没有解决我的问题</span>
+          </label>
+          <label class="reason-option">
+            <input type="radio" name="reason" value="知识库没有相关内容">
+            <span class="reason-radio" aria-hidden="true"></span>
+            <span>知识库没有相关内容</span>
+          </label>
+          <label class="reason-option">
+            <input type="radio" name="reason" value="其他">
+            <span class="reason-radio" aria-hidden="true"></span>
+            <span>其他</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="comment-field">
+        <label for="feedbackComment">补充说明 <span class="optional-mark">选填</span></label>
+        <textarea
+          id="feedbackComment"
+          name="comment"
+          rows="4"
+          maxlength="300"
+          placeholder="请补充具体问题，帮助我们改进回答……"
+        ></textarea>
+        <div class="comment-meta"><span id="commentCount">0</span> / 300</div>
+      </div>
+
+      <div class="feedback-actions">
+        <button class="secondary-button" id="cancelFeedbackButton" type="button">取消</button>
+        <button class="primary-button" id="submitFeedbackButton" type="submit" disabled>
+          <span class="button-label">提交反馈</span>
+          <span class="button-spinner" aria-hidden="true"></span>
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</body>
+</html>

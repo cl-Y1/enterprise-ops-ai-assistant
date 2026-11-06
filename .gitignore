@@ -1,0 +1,36 @@
+# 环境变量与密钥：绝不能提交真实 .env
+.env
+.env.*
+!.env.example
+
+# Python 虚拟环境与缓存
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 本项目在受限 Windows 环境下安装依赖时的临时目录
+.tmp/
+.pip-bootstrap/
+
+# 本地视觉验收产物，不属于项目源码
+preview*.png
+ui-*.png
+preview-profile*/
+
+# 编辑器和系统文件
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志与打包文件
+*.log
+*.zip
