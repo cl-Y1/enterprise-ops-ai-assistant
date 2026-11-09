@@ -23,6 +23,31 @@ V1.4 **只增加权限管理，不重写已有功能**。以下能力继续保�
 
 ---
 
+## 交付文档
+
+- [系统架构](docs/architecture.md)：组件、数据模型、认证和请求链路
+- [业务流程](docs/business-flow.md)：员工问答、运维版本、管理员审核发布、Dify/RAG
+- [角色权限矩阵](docs/permissions.md)：三角色权限、路由权限、Session/CSRF 规则
+- [测试报告](docs/test-report.md)：46 项测试、需求对照、浏览器验收
+- [Dify 知识库更新衔接流程](docs/dify-sync-workflow.md)：同步、索引、RAG 与回滚手册
+- [功能截图说明](screenshots/README.md)：实际运行截图清单与数据说明
+
+## 界面截图
+
+截图来自实际运行页面，使用本地演示数据；聊天截图使用本地模拟 Dify，仅用于界面验收。
+
+![登录页](screenshots/01-login.png)
+
+![管理员文档后台](screenshots/02-document-management.png)
+
+![角色权限矩阵](screenshots/04-role-permissions.png)
+
+![运维人员 RAG 验证](screenshots/06-operator-rag.png)
+
+更多截图：[screenshots/](screenshots/README.md)
+
+---
+
 ## 1. 角色权限矩阵
 
 | 能力 | 普通员工 employee | 运维人员 operator | 管理员 admin |
@@ -139,7 +164,23 @@ enterprise-ops-ai-assistant/
 │   ├── test_documents.py        # 14 项文档工作流/RBAC
 │   └── test_rbac.py             # 10 项账号/角色/审计
 │
-├── docs/dify-sync-workflow.md
+├── docs/
+│   ├── architecture.md
+│   ├── business-flow.md
+│   ├── permissions.md
+│   ├── test-report.md
+│   └── dify-sync-workflow.md
+│
+├── screenshots/
+│   ├── 01-login.png
+│   ├── 02-document-management.png
+│   ├── 03-document-review.png
+│   ├── 04-role-permissions.png
+│   ├── 05-user-management.png
+│   ├── 06-operator-rag.png
+│   ├── 07-chat.png
+│   └── 08-feedback.png
+│
 └── .github/workflows/tests.yml
 ```
 
